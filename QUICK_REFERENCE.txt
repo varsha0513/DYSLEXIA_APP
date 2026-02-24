@@ -1,0 +1,432 @@
+"""
+🧠 DYSLEXIA RISK SCORING SYSTEM - QUICK REFERENCE CARD
+"""
+
+# ============================================================================
+# THE FORMULA (AT A GLANCE)
+# ============================================================================
+
+"""
+RISK SCORE = (WPM_Score × 40%) + (Accuracy_Score × 25%) + 
+             (Missing_Words_Score × 15%) + (Wrong_Words_Score × 15%) + 
+             (Extra_Words_Score × 5%)
+             
+             Result: 0-100 scale
+"""
+
+# ============================================================================
+# COMPONENT SCORES
+# ============================================================================
+
+"""
+1. WPM SCORE (Weight: 40%)
+   ┌─────────────────────────────────────────┐
+   │ WPM >= 150        → 0 points (Normal)  │
+   │ 100-150 WPM       → 0-50 points        │
+   │ 50-100 WPM        → 50-75 points       │
+   │ < 50 WPM          → 100 points (Crit) │
+   └─────────────────────────────────────────┘
+   
+   Impact: Can contribute up to 40 points to final score
+
+2. ACCURACY SCORE (Weight: 25%)
+   ┌─────────────────────────────────────────┐
+   │ >= 90%            → 0 points (Excellent)│
+   │ 80-90%            → 0-30 points        │
+   │ 70-80%            → 30-50 points       │
+   │ 60-70%            → 50-75 points       │
+   │ < 60%             → 100 points (Crit) │
+   └─────────────────────────────────────────┘
+   
+   Impact: Can contribute up to 25 points to final score
+
+3. MISSING WORDS SCORE (Weight: 15%)
+   ┌─────────────────────────────────────────┐
+   │ 0-5% missing      → 0-20 points        │
+   │ 5-15% missing     → 20-50 points       │
+   │ 15-30% missing    → 50-80 points       │
+   │ > 30% missing     → 100 points (Crit) │
+   └─────────────────────────────────────────┘
+   
+   Impact: Can contribute up to 15 points to final score
+
+4. WRONG WORDS SCORE (Weight: 15%)
+   ┌─────────────────────────────────────────┐
+   │ 0-5% wrong        → 0-20 points        │
+   │ 5-15% wrong       → 20-50 points       │
+   │ 15-30% wrong      → 50-80 points       │
+   │ > 30% wrong       → 100 points (Crit) │
+   └─────────────────────────────────────────┘
+   
+   Impact: Can contribute up to 15 points to final score
+
+5. EXTRA WORDS SCORE (Weight: 5%)
+   ┌─────────────────────────────────────────┐
+   │ 0 extra           → 0 points           │
+   │ 1-3 extra         → 5 points           │
+   │ 4-6 extra         → 10 points          │
+   │ > 6 extra         → 20 points          │
+   └─────────────────────────────────────────┘
+   
+   Impact: Can contribute up to 5 points to final score
+"""
+
+# ============================================================================
+# RISK CLASSIFICATION
+# ============================================================================
+
+"""
+RISK SCORE → RISK LEVEL → INTERPRETATION
+
+┌──────────────────────────────────────────────────────────┐
+│ 0-30       🟢 LOW RISK                                   │
+│            Normal reading development                    │
+│            No major concerns - Continue practice         │
+├──────────────────────────────────────────────────────────┤
+│ 31-60      🟡 MODERATE RISK                              │
+│            Some areas need improvement                   │
+│            Targeted practice and monitoring needed       │
+├──────────────────────────────────────────────────────────┤
+│ 61-100     🔴 HIGH RISK                                  │
+│            Significant reading problems detected         │
+│            Professional assessment recommended           │
+└──────────────────────────────────────────────────────────┘
+"""
+
+# ============================================================================
+# EXAMPLE CALCULATIONS
+# ============================================================================
+
+"""
+CASE 1: Normal Reader
+────────────────────────────────────────
+Metrics: WPM=145, Accuracy=92%, Missing=1/50, Wrong=1/50, Extra=0
+
+Calculation:
+  WPM_Score: ((150-145)/50)×50 = 5
+  Accuracy_Score: 0 (≥90%)
+  Missing_Score: (1/50÷5)×20 = 8
+  Wrong_Score: (1/50÷5)×20 = 8
+  Extra_Score: 0
+
+  Risk = (5×0.40) + (0×0.25) + (8×0.15) + (8×0.15) + (0×0.05)
+       = 2 + 0 + 1.2 + 1.2 + 0 = 4.4 → 4
+
+Result: 🟢 LOW RISK (4/100) ✅
+
+
+CASE 2: Struggling Reader
+────────────────────────────────────────
+Metrics: WPM=75, Accuracy=68%, Missing=8/50, Wrong=6/50, Extra=2
+
+Calculation:
+  WPM_Score: 50 + ((100-75)/50)×25 = 62.5
+  Accuracy_Score: 50 + ((70-68)/10)×25 = 55
+  Missing_Score: 20 + ((8/50×100-5)/10)×30 = 52
+  Wrong_Score: 20 + ((6/50×100-5)/10)×30 = 29.5
+  Extra_Score: 5
+
+  Risk = (62.5×0.40) + (55×0.25) + (52×0.15) + (29.5×0.15) + (5×0.05)
+       = 25 + 13.75 + 7.8 + 4.425 + 0.25 = 51.225 → 51
+
+Result: 🟡 MODERATE RISK (51/100) ⚠️
+
+
+CASE 3: High Risk Reader
+────────────────────────────────────────
+Metrics: WPM=45, Accuracy=50%, Missing=15/50, Wrong=10/50, Extra=5
+
+Calculation:
+  WPM_Score: 100 (<50)
+  Accuracy_Score: 100 (<60%)
+  Missing_Score: 50 + ((30-15)/15)×30 = 80
+  Wrong_Score: 50 + ((20-15)/15)×30 = 60
+  Extra_Score: 20
+
+  Risk = (100×0.40) + (100×0.25) + (80×0.15) + (60×0.15) + (20×0.05)
+       = 40 + 25 + 12 + 9 + 1 = 87
+
+Result: 🔴 HIGH RISK (87/100) 🚨
+"""
+
+# ============================================================================
+# INDICATORS QUICK REFERENCE
+# ============================================================================
+
+"""
+SPEED INDICATORS:
+  WPM < 50    → 🔴 CRITICAL: Extremely slow reading
+  WPM < 100   → ⚠️  Very slow reading speed
+  WPM < 150   → ⚠️  Slow reading speed
+
+ACCURACY INDICATORS:
+  Accuracy < 60%  → 🔴 CRITICAL: Very low accuracy
+  Accuracy 60-70% → ⚠️  Low accuracy  
+  Accuracy 70-80% → ⚠️  Below target accuracy
+
+SKIPPING INDICATORS:
+  Missing > 30%   → 🔴 CRITICAL: Many skipped words
+  Missing 15-30%  → ⚠️  Significant word skipping
+  Missing 5-15%   → ⚠️  Some words skipped
+
+ERROR INDICATORS:
+  Wrong > 30%     → 🔴 CRITICAL: Many pronunciation errors
+  Wrong 15-30%    → ⚠️  Significant pronunciation issues
+  Wrong 5-15%     → ⚠️  Some pronunciation errors
+
+HESITATION INDICATORS:
+  Pauses > 10     → ⚠️  Many pauses (severe hesitation)
+  Pauses 6-10     → ⚠️  Frequent hesitation
+"""
+
+# ============================================================================
+# RECOMMENDATIONS BY RISK LEVEL
+# ============================================================================
+
+"""
+🟢 LOW RISK (0-30)
+────────────────────────────────────────
+  ✅ Continue current reading practice
+  🎯 Challenge with more complex texts
+  📚 Maintain consistent reading habits
+
+🟡 MODERATE RISK (31-60)
+────────────────────────────────────────
+  📖 Practice with age-appropriate passages
+  🎯 Focus on accuracy over speed
+  💪 Use multi-sensory reading techniques
+  📝 Practice phonetic decoding exercises
+
+🔴 HIGH RISK (61-100)
+────────────────────────────────────────
+  🚨 Consider professional dyslexia assessment
+  👨‍🏫 Work with a reading specialist
+  📖 Use specialized intervention programs
+  🎧 Try audiobook pairing with text reading
+  ⏱️  Practice with shorter, easier passages first
+  💡 Use visual aids and color overlays
+"""
+
+# ============================================================================
+# INPUT METRICS REFERENCE
+# ============================================================================
+
+"""
+REQUIRED INPUT FOR RISK CALCULATION:
+
+1. WPM (Words Per Minute)
+   How to get: Total spoken words ÷ Elapsed time in minutes
+   Range: Typically 30-200
+   
+2. Accuracy Percentage
+   How to get: (Correct words / Total reference words) × 100
+   Range: 0-100%
+   
+3. Missing Words Count
+   How to get: Words in reference but not in spoken text
+   Range: 0 to total words
+   
+4. Wrong Words Count
+   How to get: Words that were mispronounced/substituted
+   Range: 0 to total words
+   
+5. Extra Words Count
+   How to get: Words spoken that weren't in reference
+   Range: 0 or positive
+   
+6. Total Words (Reference)
+   How to get: Word count in original passage
+   Range: Minimum 1 (typically 50+)
+   
+7. Pause Count (Optional)
+   How to get: Number of reading hesitations detected
+   Range: 0 or positive (typically 0-20)
+"""
+
+# ============================================================================
+# WEIGHT JUSTIFICATION
+# ============================================================================
+
+"""
+WHY THESE WEIGHTS?
+
+40% WPM
+  • Strongest dyslexia indicator
+  • Dyslexic readers 20-50% slower
+  • All populations show this pattern
+  
+25% ACCURACY
+  • Indicates comprehension level
+  • Phonological processing indicator
+  • Not sufficient alone (slow ≠ dyslexic)
+  
+15% MISSING WORDS
+  • Shows attention/tracking issues
+  • Attention-related dyslexia marker
+  
+15% WRONG WORDS
+  • Direct phonetic processing indicator
+  • Core dyslexia characteristic
+  • Equal weight to missing words
+  
+5% EXTRA WORDS
+  • Lower diagnostic value
+  • Multiple possible causes
+"""
+
+# ============================================================================
+# USAGE EXAMPLES
+# ============================================================================
+
+"""
+PYTHON CODE EXAMPLES:
+
+# Basic usage
+from dyslexia_risk_scoring import DyslexiaRiskScorer
+
+scorer = DyslexiaRiskScorer()
+result = scorer.calculate_risk_score(
+    wpm=95,
+    accuracy_percent=80,
+    missing_words=3,
+    wrong_words=2,
+    extra_words=1,
+    total_words=40
+)
+
+print(f"Risk: {result['risk_score']}/100")
+print(f"Level: {result['risk_level']}")
+
+# Get formatted report
+print(scorer.format_assessment_report(result))
+
+# Access component scores
+scores = result['component_scores']
+print(f"WPM Score: {scores['wpm_score']}")
+print(f"Accuracy Score: {scores['accuracy_score']}")
+
+# Get indicators
+for indicator in result['indicators']:
+    print(f"• {indicator}")
+
+# Get recommendations
+for rec in result['recommendations']:
+    print(f"• {rec}")
+"""
+
+# ============================================================================
+# FILE LOCATIONS
+# ============================================================================
+
+"""
+KEY FILES:
+
+Backend/Core:
+  backend/dyslexia_risk_scoring.py
+    Main implementation (480+ lines)
+    
+Integration:
+  backend/complete_reading_assessment.py
+    Uses risk scoring in full assessment
+    
+Testing:
+  backend/test_risk_scoring.py
+    Validation and testing
+    
+Examples:
+  backend/dyslexia_risk_scoring_examples.py
+    10 example scenarios
+    
+Documentation:
+  IMPLEMENTATION_SUMMARY.txt (this file)
+  RISK_SCORING_FORMULA.txt
+  SYSTEM_ARCHITECTURE.txt
+  README.md
+"""
+
+# ============================================================================
+# COMMON SCENARIOS
+# ============================================================================
+
+"""
+SCENARIO: Student reads "The cat sat on the mat" in 4 seconds
+
+Reference Words: 6
+Speech recorded: "The cat sat on the mat" (6 words, all correct)
+Time: 4 seconds = 0.0667 minutes
+WPM: 6 ÷ 0.0667 = 90 WPM
+
+Accuracy: 6/6 = 100%
+Missing: 0, Wrong: 0, Extra: 0
+
+Component Scores:
+  WPM: 50 (90 WPM = slow)
+  Accuracy: 0 (100%)
+  Missing: 0
+  Wrong: 0
+  Extra: 0
+
+Risk = (50×0.40) + (0×0.25) + (0×0.15) + (0×0.15) + (0×0.05) = 20
+
+Result: 🟢 LOW RISK (20/100)
+Meaning: Accurate but slower reader - normal development
+
+
+SCENARIO: Student struggles with same passage
+
+Reference: "The cat sat on the mat" (6 words)
+Speech: "The cat set on the mat" (1 word wrong)
+Time: 8 seconds = 0.133 minutes
+WPM: 6 ÷ 0.133 = 45 WPM
+
+Accuracy: 5/6 = 83%
+Missing: 0, Wrong: 1, Extra: 0
+
+Component Scores:
+  WPM: 100 (<50 WPM = critical)
+  Accuracy: 25 (80-90% range)
+  Missing: 0
+  Wrong: 17 (1/6 = 17%)
+  Extra: 0
+
+Risk = (100×0.40) + (25×0.25) + (0×0.15) + (17×0.15) + (0×0.05)
+     = 40 + 6.25 + 0 + 2.55 + 0 = 48.8 → 49
+
+Result: 🟡 MODERATE RISK (49/100)
+Meaning: Very slow + some errors = needs intervention
+"""
+
+# ============================================================================
+# CHEAT SHEET FOR QUICK REFERENCE
+# ============================================================================
+
+"""
+MENTAL MATH SHORTCUTS:
+
+Quick Risk Estimation (rough):
+  • WPM < 100 + Accuracy < 80% = Likely 40+
+  • WPM < 100 + Accuracy > 85% = Likely 20-30
+  • WPM > 150 + Accuracy > 90% = Likely 0-10
+  • Multiple critical indicators = Likely 60+
+
+Thresholds to Remember:
+  • Normal WPM: 150+
+  • Target Accuracy: 90%+
+  • Acceptable Missing: < 5%
+  • Acceptable Wrong: < 5%
+  • Normal Pauses: 0-2
+
+Red Flags (Watch For):
+  🔴 WPM < 50
+  🔴 Accuracy < 60%
+  🔴 Missing > 30%
+  🔴 Wrong > 30%
+  
+Yellow Flags (Monitor):
+  ⚠️ WPM 50-100
+  ⚠️ Accuracy 70-80%
+  ⚠️ Missing 15-30%
+  ⚠️ Wrong 15-30%
+"""
+
+print(__doc__)

@@ -1,0 +1,515 @@
+"""
+DYSLEXIA RISK SCORING SYSTEM - DETAILED FORMULA DOCUMENTATION
+
+This document explains the exact weighted formula and calculation logic
+used to compute the dyslexia risk score.
+"""
+
+# ============================================================================
+# OVERALL RISK SCORE FORMULA
+# ============================================================================
+
+"""
+Final Risk Score = (WPM_Score × 0.40) + 
+                   (Accuracy_Score × 0.25) + 
+                   (Missing_Words_Score × 0.15) + 
+                   (Wrong_Words_Score × 0.15) + 
+                   (Extra_Words_Score × 0.05)
+
+Where all component scores are normalized to 0-100 scale, and the final
+result is rounded and capped to 0-100 range.
+
+Weight Breakdown:
+- WPM (40%): Slow reading is the strongest indicator of dyslexia
+- Accuracy (25%): Low accuracy indicates comprehension difficulties
+- Missing Words (15%): Word skipping indicates attention/processing issues
+- Wrong Words (15%): Pronunciation errors indicate phonetic difficulties
+- Extra Words (5%): Minor factor, indicates possible lack of focus
+"""
+
+
+# ============================================================================
+# COMPONENT 1: WPM (WORDS PER MINUTE) SCORING - 40% WEIGHT
+# ============================================================================
+
+"""
+WPM Score Calculation:
+
+Reference: Normal adult reading speed = 150 WPM
+
+if WPM >= 150:
+    WPM_Score = 0  (Normal)
+
+elif 100 <= WPM < 150:
+    WPM_Score = ((150 - WPM) / (150 - 100)) × 50
+    # Linear interpolation: 0-50 points
+    # Example: 100 WPM = 50, 125 WPM = 25, 150 WPM = 0
+
+elif 50 <= WPM < 100:
+    WPM_Score = 50 + ((100 - WPM) / 50) × 25
+    # Linear interpolation: 50-75 points
+    # Example: 50 WPM = 75, 75 WPM = 62.5, 100 WPM = 50
+
+else:  # WPM < 50
+    WPM_Score = 100  (Critical)
+
+Scoring Table:
+├── 150+ WPM:   0 points   (Normal/Fast reading)
+├── 100-150 WPM: 0-50 points (Slower than normal)
+├── 50-100 WPM:  50-75 points (Very slow)
+└── <50 WPM:     100 points  (Critical - Extremely slow)
+
+Contribution to Final Score: up to 40 points
+"""
+
+
+# ============================================================================
+# COMPONENT 2: ACCURACY PERCENTAGE SCORING - 25% WEIGHT
+# ============================================================================
+
+"""
+Accuracy Score Calculation:
+
+Reference: Target accuracy = 90%
+
+if Accuracy >= 90:
+    Accuracy_Score = 0  (Excellent)
+
+elif 80 <= Accuracy < 90:
+    Accuracy_Score = ((90 - Accuracy) / 10) × 30
+    # Linear interpolation: 0-30 points
+    # Example: 80% = 30, 85% = 15, 90% = 0
+
+elif 70 <= Accuracy < 80:
+    Accuracy_Score = 30 + ((80 - Accuracy) / 10) × 20
+    # Linear interpolation: 30-50 points
+    # Example: 70% = 50, 75% = 40, 80% = 30
+
+elif 60 <= Accuracy < 70:
+    Accuracy_Score = 50 + ((70 - Accuracy) / 10) × 25
+    # Linear interpolation: 50-75 points
+    # Example: 60% = 75, 65% = 62.5, 70% = 50
+
+else:  # Accuracy < 60
+    Accuracy_Score = 100  (Critical)
+
+Scoring Table:
+├── 90%+ accuracy:    0 points   (Excellent)
+├── 80-90% accuracy:  0-30 points (Good)
+├── 70-80% accuracy:  30-50 points (Fair)
+├── 60-70% accuracy:  50-75 points (Poor)
+└── <60% accuracy:    100 points  (Critical)
+
+Contribution to Final Score: up to 25 points
+"""
+
+
+# ============================================================================
+# COMPONENT 3: MISSING WORDS SCORING - 15% WEIGHT
+# ============================================================================
+
+"""
+Missing Words Score Calculation:
+
+Missing_Percent = (Missing_Words / Total_Words) × 100
+
+if Missing_Percent <= 5:
+    Missing_Words_Score = (Missing_Percent / 5) × 20
+    # Linear: 0-20 points
+    # Example: 0% = 0, 2.5% = 10, 5% = 20
+
+elif 5 < Missing_Percent <= 15:
+    Missing_Words_Score = 20 + ((Missing_Percent - 5) / 10) × 30
+    # Linear: 20-50 points
+    # Example: 5% = 20, 10% = 35, 15% = 50
+
+elif 15 < Missing_Percent <= 30:
+    Missing_Words_Score = 50 + ((Missing_Percent - 15) / 15) × 30
+    # Linear: 50-80 points
+    # Example: 15% = 50, 22.5% = 65, 30% = 80
+
+else:  # Missing_Percent > 30
+    Missing_Words_Score = 100  (Critical)
+
+Scoring Table:
+├── 0-5% missing:     0-20 points  (Minimal)
+├── 5-15% missing:    20-50 points (Moderate)
+├── 15-30% missing:   50-80 points (Significant)
+└── >30% missing:     100 points   (Critical - Heavy word skipping)
+
+Contribution to Final Score: up to 15 points
+
+Meaning: Skipped words indicate attention or phonological processing issues
+"""
+
+
+# ============================================================================
+# COMPONENT 4: WRONG WORDS SCORING - 15% WEIGHT
+# ============================================================================
+
+"""
+Wrong Words Score Calculation:
+
+Wrong_Percent = (Wrong_Words / Total_Words) × 100
+
+if Wrong_Percent <= 5:
+    Wrong_Words_Score = (Wrong_Percent / 5) × 20
+    # Linear: 0-20 points
+
+elif 5 < Wrong_Percent <= 15:
+    Wrong_Words_Score = 20 + ((Wrong_Percent - 5) / 10) × 30
+    # Linear: 20-50 points
+
+elif 15 < Wrong_Percent <= 30:
+    Wrong_Words_Score = 50 + ((Wrong_Percent - 15) / 15) × 30
+    # Linear: 50-80 points
+
+else:  # Wrong_Percent > 30
+    Wrong_Words_Score = 100  (Critical)
+
+Scoring Table:
+├── 0-5% wrong:       0-20 points  (Minimal errors)
+├── 5-15% wrong:      20-50 points (Moderate errors)
+├── 15-30% wrong:     50-80 points (Significant errors)
+└── >30% wrong:       100 points   (Critical - Many phonetic errors)
+
+Contribution to Final Score: up to 15 points
+
+Meaning: Pronunciation/phonetic errors indicate decoding difficulties,
+a hallmark of dyslexia
+"""
+
+
+# ============================================================================
+# COMPONENT 5: EXTRA WORDS SCORING - 5% WEIGHT
+# ============================================================================
+
+"""
+Extra Words Score Calculation:
+
+if Extra_Words == 0:
+    Extra_Words_Score = 0
+
+elif 1 <= Extra_Words <= 3:
+    Extra_Words_Score = 5
+
+elif 4 <= Extra_Words <= 6:
+    Extra_Words_Score = 10
+
+else:  # Extra_Words > 6
+    Extra_Words_Score = 20
+
+Scoring Table:
+├── 0 extra words:    0 points   (Perfect)
+├── 1-3 extra words:  5 points   (Minor additions)
+├── 4-6 extra words:  10 points  (Moderate additions)
+└── >6 extra words:   20 points  (Many additions)
+
+Contribution to Final Score: up to 5 points
+
+Meaning: Extra words have minimal impact but suggest possible attention
+or concentration issues
+"""
+
+
+# ============================================================================
+# OPTIONAL COMPONENT: PAUSE COUNT SCORING
+# ============================================================================
+
+"""
+Pause Count Score Calculation (OPTIONAL):
+
+Pauses indicate reading hesitation and processing difficulties
+
+if Pause_Count <= 2:
+    Pause_Score = 0  (Normal hesitation)
+
+elif 3 <= Pause_Count <= 5:
+    Pause_Score = 15  (Some hesitation)
+
+elif 6 <= Pause_Count <= 10:
+    Pause_Score = 30  (Noticeable hesitation)
+
+else:  # Pause_Count > 10
+    Pause_Score = 50  (Severe hesitation)
+
+Scoring Table:
+├── 0-2 pauses:   0 points   (Normal)
+├── 3-5 pauses:   15 points  (Some hesitation)
+├── 6-10 pauses:  30 points  (Noticeable hesitation)
+└── >10 pauses:   50 points  (Severe hesitation - Critical)
+
+Note: Currently not included in weighted formula but tracked separately
+for analysis
+"""
+
+
+# ============================================================================
+# RISK LEVEL CLASSIFICATION
+# ============================================================================
+
+"""
+Final Risk Score Classification:
+
+Risk Score Range    | Risk Level         | Interpretation
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+0 - 30              | 🟢 LOW RISK        | Normal reading development
+                    |                    | No major concerns detected
+                    |                    | Continue regular practice
+                    
+31 - 60             | 🟡 MODERATE RISK   | Some reading difficulties
+                    |                    | Intervention recommended
+                    |                    | Targeted practice needed
+                    
+61 - 100            | 🔴 HIGH RISK       | Significant reading problems
+                    |                    | Professional assessment advised
+                    |                    | Specialized intervention needed
+"""
+
+
+# ============================================================================
+# EXAMPLE CALCULATIONS
+# ============================================================================
+
+"""
+EXAMPLE 1: Normal Reader
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Input Metrics:
+  WPM: 145, Accuracy: 92%, Missing: 1/50, Wrong: 1/50, Extra: 0
+
+Component Scores:
+  WPM_Score = ((150-145)/(150-100)) × 50 = 5
+  Accuracy_Score = 0 (>= 90%)
+  Missing_Score = (1/50 × 100 / 5) × 20 = 8
+  Wrong_Score = (1/50 × 100 / 5) × 20 = 8
+  Extra_Score = 0
+
+Final Risk Score = (5 × 0.40) + (0 × 0.25) + (8 × 0.15) + (8 × 0.15) + (0 × 0.05)
+                 = 2 + 0 + 1.2 + 1.2 + 0
+                 = 4.4 ≈ 4 (Rounded)
+
+Result: 🟢 LOW RISK (4/100)
+
+
+EXAMPLE 2: Struggling Reader
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Input Metrics:
+  WPM: 75, Accuracy: 68%, Missing: 8/50, Wrong: 6/50, Extra: 2
+
+Component Scores:
+  WPM_Score = 50 + ((100-75)/50) × 25 = 62.5
+  Accuracy_Score = 50 + ((70-68)/10) × 25 = 55
+  Missing_Score = 20 + ((5/50×100 - 5)/10) × 30 = 52
+  Wrong_Score = 20 + ((6/50×100 - 5)/10) × 30 = 29.5
+  Extra_Score = 5
+
+Final Risk Score = (62.5 × 0.40) + (55 × 0.25) + (52 × 0.15) + (29.5 × 0.15) + (5 × 0.05)
+                 = 25 + 13.75 + 7.8 + 4.425 + 0.25
+                 = 51.225 ≈ 51 (Rounded)
+
+Result: 🟡 MODERATE RISK (51/100)
+
+
+EXAMPLE 3: High Risk Reader
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Input Metrics:
+  WPM: 40, Accuracy: 50%, Missing: 15/50, Wrong: 12/50, Extra: 5
+
+Component Scores:
+  WPM_Score = 100 (< 50)
+  Accuracy_Score = 100 (< 60%)
+  Missing_Score = 50 + ((30 - 15)/15) × 30 = 80
+  Wrong_Score = 50 + ((24 - 15)/15) × 30 = 68
+  Extra_Score = 20
+
+Final Risk Score = (100 × 0.40) + (100 × 0.25) + (80 × 0.15) + (68 × 0.15) + (20 × 0.05)
+                 = 40 + 25 + 12 + 10.2 + 1
+                 = 88.2 ≈ 88 (Rounded)
+
+Result: 🔴 HIGH RISK (88/100)
+"""
+
+
+# ============================================================================
+# INDICATOR DETECTION RULES
+# ============================================================================
+
+"""
+The system identifies specific concerning indicators:
+
+Speed Indicators:
+  • WPM < 50:     🔴 CRITICAL: Extremely slow reading
+  • WPM < 100:    ⚠️  Very slow reading speed
+  • WPM < 150:    ⚠️  Slow reading speed
+
+Accuracy Indicators:
+  • Accuracy < 60%: 🔴 CRITICAL: Very low accuracy
+  • Accuracy 60-70%: ⚠️  Low accuracy
+  • Accuracy 70-80%: ⚠️  Below target accuracy
+
+Missing Words Indicators:
+  • Missing% > 30%: 🔴 CRITICAL: Many skipped words
+  • Missing% 15-30%: ⚠️  Significant word skipping
+  • Missing% 5-15%: ⚠️  Some words skipped
+
+Wrong Words Indicators:
+  • Wrong% > 30%: 🔴 CRITICAL: Many pronunciation errors
+  • Wrong% 15-30%: ⚠️  Significant pronunciation issues
+  • Wrong% 5-15%: ⚠️  Some pronunciation errors
+
+Pause Indicators:
+  • Pauses > 10: ⚠️  Many pauses (significant hesitation)
+  • Pauses 6-10: ⚠️  Frequent hesitation
+"""
+
+
+# ============================================================================
+# DYSLEXIA RISK INTERPRETATION GUIDE
+# ============================================================================
+
+"""
+Risk Score Interpretation:
+
+🟢 LOW RISK (0-30): 
+  Interpretation: Normal reading development
+  Characteristics:
+    • Reading speed at or above average
+    • High accuracy (>85%)
+    • Minimal word skipping/errors
+    • Smooth reading with few pauses
+  Action: Continue regular reading practice
+
+🟡 MODERATE RISK (31-60):
+  Interpretation: Some reading difficulties detected
+  Characteristics:
+    • Slower than average reading speed (100-150 WPM)
+    • Moderate accuracy (70-85%)
+    • Some word errors or skips (5-15%)
+    • Occasional reading hesitations
+  Action: Targeted practice and monitoring
+    - Focus on accuracy over speed
+    - Use multi-sensory reading techniques
+    - Practice phonetic decoding
+    - Regular reading assessments
+
+🔴 HIGH RISK (61-100):
+  Interpretation: Significant reading difficulties detected
+  Characteristics:
+    • Very slow reading speed (<100 WPM)
+    • Low accuracy (<70%)
+    • Frequent word errors/skips (>15%)
+    • Many reading pauses/hesitations
+  Action: Professional intervention recommended
+    - Formal dyslexia assessment
+    - Work with reading specialist
+    - Specialized intervention programs
+    - Multi-sensory/structured literacy approach
+    - Technology aids (audiobooks, text-to-speech)
+"""
+
+
+# ============================================================================
+# VALIDATION & QUALITY METRICS
+# ============================================================================
+
+"""
+Quality Assurance Checks:
+
+The scoring system automatically validates:
+
+1. Input Validation:
+   ✓ All metrics within valid ranges
+   ✓ WPM >= 0
+   ✓ Accuracy 0-100%
+   ✓ Word counts >= 0
+   ✓ Missing words <= Total words
+   ✓ Wrong words <= Total words
+
+2. Score Normalization:
+   ✓ All component scores capped at 100
+   ✓ Final score within 0-100 range
+   ✓ Weights sum to 100% (40+25+15+15+5)
+
+3. Edge Cases Handled:
+   ✓ Zero total words (returns 0 score)
+   ✓ All perfect metrics (0 risk score)
+   ✓ All failing metrics (100 risk score)
+
+4. Rounding:
+   ✓ All scores rounded to 2 decimal places
+   ✓ Final risk score rounded to nearest integer
+"""
+
+
+# ============================================================================
+# NOTES ON FORMULA DESIGN
+# ============================================================================
+
+"""
+Design Rationale:
+
+1. WPM Weight (40%):
+   Rationale: Slow reading is the strongest and most consistent indicator
+   of dyslexia. Studies show dyslexic readers read 20-50% slower than peers.
+   High weight ensures this critical metric dominates the assessment.
+
+2. Accuracy Weight (25%):
+   Rationale: Low accuracy indicates decoding or phonological processing
+   difficulties. However, some readers can be slow but accurate, so we
+   weight this less than WPM.
+
+3. Missing Words Weight (15%):
+   Rationale: Word skipping indicates attention to detail or phonological
+   processing issues. Equal weight with wrong words for balanced assessment.
+
+4. Wrong Words Weight (15%):
+   Rationale: Pronunciation errors directly indicate phonetic decoding
+   difficulties, a core dyslexia symptom. Equal weight with missing words.
+
+5. Extra Words Weight (5%):
+   Rationale: Extra words have minimal diagnostic significance but can
+   indicate attention or concentration problems. Light weight reflects
+   this lower importance.
+
+6. Linear Interpolation:
+   Rationale: Rather than step functions, we use linear interpolation
+   between thresholds to allow gradual scoring changes. This provides
+   better granularity and avoids artificial score jumps.
+
+7. Multiple Metrics:
+   Rationale: Single-metric assessment would be unreliable. For example,
+   a fast reader with low accuracy might appear "normal" on WPM alone.
+   By combining metrics, we get a more holistic, accurate picture.
+"""
+
+
+# ============================================================================
+# REFERENCES
+# ============================================================================
+
+"""
+Research Supporting the Scoring Formula:
+
+1. Shaywitz, S. E. (2003). "Overcoming Dyslexia: A New and Complete
+   Science-Based Program for Reading Problems at Any Age"
+   - Reading speed and accuracy are primary dyslexia indicators
+
+2. Stanovich, K. E. (1985). "Explaining the differences between the
+   dyslexic and the garden-variety poor reader"
+   - Distinguishes specific dyslexia from general reading difficulty
+
+3. Fletcher, J. M., & Vaughn, S. (2009). "Response to intervention:
+   Preventing and remediating academic difficulties"
+   - Multi-factor assessment improves identification accuracy
+
+4. Wolf, M., & Katzir-Cohen, T. (2001). "Reading Fluency and its
+   Intervention"
+   - Speed and accuracy are complementary measures of reading ability
+
+5. Torgesen, J. K. (1997). "The Prevention and Remediation of Reading
+   Disabilities: Evaluating What We Know from Research"
+   - Early identification and intervention improves outcomes
+"""

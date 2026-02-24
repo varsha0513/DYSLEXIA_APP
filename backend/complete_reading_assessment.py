@@ -6,6 +6,7 @@ import time
 from vosk import Model, KaldiRecognizer
 from text_comparison import compare_text, get_performance_feedback
 from reading_speed import ReadingSpeedAnalyzer
+from dyslexia_risk_scoring import DyslexiaRiskScorer
 
 # Load model
 model_path = "../model/vosk-model-small-en-us-0.15"
@@ -136,33 +137,23 @@ def run_complete_reading_assessment(reference_text):
                         
                         print(f"Difficulty Level:   {difficulty}")
                         
-                        # Dyslexia indicators
-                        print("\n" + "-"*70)
-                        print("🔍 DYSLEXIA INDICATORS")
-                        print("-"*70)
+                        # Calculate Dyslexia Risk Score
+                        risk_scorer = DyslexiaRiskScorer()
+                        risk_assessment = risk_scorer.calculate_risk_score(
+                            wpm=wpm,
+                            accuracy_percent=comparison_result['accuracy_percent'],
+                            missing_words=comparison_result['missing_words'],
+                            wrong_words=comparison_result['wrong_words'],
+                            extra_words=comparison_result['extra_words'],
+                            total_words=comparison_result['total_words'],
+                            pause_count=0  # Could be tracked from speech recognition
+                        )
                         
-                        indicators = []
+                        # Display comprehensive risk assessment report
+                        print(risk_scorer.format_assessment_report(risk_assessment))
                         
-                        if comparison_result['accuracy_percent'] < 70:
-                            indicators.append("❌ Low accuracy (< 70%)")
-                        
-                        if wpm < 90:
-                            indicators.append("⚠️ Slow reading speed (< 90 WPM)")
-                        
-                        if comparison_result['missing_words'] > 2:
-                            indicators.append("⚠️ Frequent word omissions")
-                        
-                        if comparison_result['wrong_words'] > 2:
-                            indicators.append("⚠️ Multiple pronunciation errors")
-                        
-                        if indicators:
-                            risk_level = "High" if len(indicators) >= 2 else "Medium"
-                            print(f"\nRisk Level: {risk_level}")
-                            for indicator in indicators:
-                                print(f"  {indicator}")
-                        else:
-                            print("\n✅ No major dyslexia indicators detected!")
-                            print("   Student shows good reading ability")
+                        # Keep original indicators for compatibility
+                        indicators = risk_assessment['indicators']
                         
                         print("="*70 + "\n")
                         
@@ -181,7 +172,15 @@ def run_complete_reading_assessment(reference_text):
                             "accuracy_metrics": comparison_result,
                             "accuracy_feedback": accuracy_feedback,
                             "difficulty_assessment": difficulty,
-                            "indicators": indicators if indicators else ["No concerns"]
+                            "indicators": indicators if indicators else ["No concerns"],
+                            "risk_assessment": {
+                                "risk_score": risk_assessment['risk_score'],
+                                "risk_level": risk_assessment['risk_level'],
+                                "component_scores": risk_assessment['component_scores'],
+                                "indicators": risk_assessment['indicators'],
+                                "recommendations": risk_assessment['recommendations'],
+                                "summary": risk_assessment['summary']
+                            }
                         }
     
     except KeyboardInterrupt:
@@ -193,6 +192,18 @@ def run_complete_reading_assessment(reference_text):
             comparison_result = compare_text(reference_text, recognized_text)
             spoken_words = len(recognized_text.split())
             wpm = speed_analyzer.calculate_wpm(spoken_words)
+            
+            # Calculate risk assessment for partial results
+            risk_scorer = DyslexiaRiskScorer()
+            risk_assessment = risk_scorer.calculate_risk_score(
+                wpm=wpm,
+                accuracy_percent=comparison_result['accuracy_percent'],
+                missing_words=comparison_result['missing_words'],
+                wrong_words=comparison_result['wrong_words'],
+                extra_words=comparison_result['extra_words'],
+                total_words=comparison_result['total_words'],
+                pause_count=0
+            )
             
             print(f"\n✅ Partial Results:")
             print(f"   Time: {speed_analyzer.get_elapsed_time_formatted()}")
@@ -207,6 +218,11 @@ def run_complete_reading_assessment(reference_text):
                     "wpm": wpm
                 },
                 "accuracy_metrics": comparison_result,
+                "risk_assessment": {
+                    "risk_score": risk_assessment['risk_score'],
+                    "risk_level": risk_assessment['risk_level'],
+                    "summary": risk_assessment['summary']
+                },
                 "status": "User interrupted"
             }
         return None
