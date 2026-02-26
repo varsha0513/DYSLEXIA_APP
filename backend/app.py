@@ -102,67 +102,134 @@ class AssessmentResponse(BaseModel):
 
 # ================== Helper Functions ==================
 
-def process_audio_file(audio_bytes: bytes) -> str:
+def process_audio_file(audio_bytes: bytes, filename: str = 'audio.wav') -> str:
     """
     Process audio file and extract recognized text using Vosk
+    Expects WAV format audio
     
     Args:
-        audio_bytes: Raw audio data
+        audio_bytes: Raw WAV audio data
+        filename: Original filename (for logging)
         
     Returns:
         Recognized text from the audio
     """
     try:
+        print(f"🎵 Processing audio file: {filename}")
+        print(f"📊 Total audio bytes received: {len(audio_bytes)}")
+        
+        # Validate audio has content
+        if len(audio_bytes) < 100:
+            print(f"❌ Audio file too small: {len(audio_bytes)} bytes")
+            return ""
+        
         # Read WAV file
         audio_stream = io.BytesIO(audio_bytes)
         with wave.open(audio_stream, 'rb') as wav_file:
             channels = wav_file.getnchannels()
             sample_width = wav_file.getsampwidth()
             sample_rate = wav_file.getframerate()
+            num_frames = wav_file.getnframes()
             
-            print(f"📊 Audio properties - Channels: {channels}, SampleWidth: {sample_width}, SampleRate: {sample_rate}")
+            print(f"📊 WAV Properties:")
+            print(f"   - Channels: {channels}")
+            print(f"   - Sample Width: {sample_width} bytes (16-bit = 2)")
+            print(f"   - Sample Rate: {sample_rate} Hz")
+            print(f"   - Frames: {num_frames}")
+            print(f"   - Duration: {num_frames / sample_rate:.2f} seconds")
             
-            # Log properties for debugging
+            # Validate audio format
             if channels != 1:
-                print(f"⚠️ Warning: Expected mono (1 channel), got {channels} channels")
+                print(f"⚠️ Converting {channels} channels to mono...")
             if sample_width != 2:
-                print(f"⚠️ Warning: Expected 16-bit (2 bytes), got {sample_width} bytes")
+                print(f"⚠️ Expected 16-bit audio, got {sample_width*8}-bit")
+            
+            # Check if audio has actual sound (rough estimate)
+            audio_data = wav_file.readframes(num_frames)
+            if len(audio_data) < 100:
+                print(f"❌ Audio data is too small: {len(audio_data)} bytes")
+                print("   → Audio is likely silent or corrupted")
+                return ""
+            
+            # Reset stream for recognition
+            audio_stream.seek(0)
+            
+            # Create recognizer - Vosk model expects 16kHz mono
             if sample_rate != 16000:
-                print(f"⚠️ Warning: Expected 16000 Hz, got {sample_rate} Hz")
+                print(f"⚠️ Vosk needs 16000 Hz, audio is {sample_rate} Hz")
+                # Vosk can handle other rates, but 16000 is optimal
             
-            # Use Vosk recognizer
-            recognizer = KaldiRecognizer(model, 16000)
-            recognized_text = ""
+            print(f"🎤 Creating Vosk recognizer (target: 16000 Hz)...")
+            recognizer = KaldiRecognizer(model, sample_rate)
+            recognizer.SetWords(None)  # Use default word list
             
-            # Process audio in chunks
+            # Process audio in optimal chunk size for Vosk
             frames_processed = 0
-            while True:
-                data = wav_file.readframes(4000)
-                if len(data) == 0:
-                    break
-                
-                frames_processed += 1
-                
-                if recognizer.AcceptWaveform(data):
-                    result = json.loads(recognizer.Result())
-                    if result.get("text"):
-                        recognized_text = result.get("text", "")
-                        print(f"📝 Recognized (interim): {recognized_text}")
+            chunks_with_results = 0
+            interim_results = []
+            
+            print("📥 Feeding audio to Vosk recognizer...")
+            with wave.open(audio_stream, 'rb') as wav_file:
+                while True:
+                    # Use larger chunks for better recognition (4000 bytes = 1000 samples @ 16-bit)
+                    data = wav_file.readframes(4096)
+                    if len(data) == 0:
+                        break
+                    
+                    # Feed data to recognizer
+                    try:
+                        if recognizer.AcceptWaveform(data):
+                            result = json.loads(recognizer.Result())
+                            if result.get("text"):
+                                interim_results.append(result.get("text"))
+                                chunks_with_results += 1
+                                print(f"✅ Interim result #{chunks_with_results}: {result.get('text')}")
+                    except Exception as e:
+                        print(f"⚠️ Error processing chunk: {e}")
+                    
+                    frames_processed += 1
+                    if frames_processed % 5 == 0:
+                        print(f"📊 Processed {frames_processed} chunks...")
             
             # Get final result
-            result = json.loads(recognizer.FinalResult())
-            final_text = result.get("text", "")
+            try:
+                final_result = json.loads(recognizer.FinalResult())
+                final_text = final_result.get("text", "")
+            except Exception as e:
+                print(f"⚠️ Error getting final result: {e}")
+                final_text = ""
             
-            print(f"📝 Final recognized text: {final_text}")
-            print(f"📊 Processed {frames_processed} frames")
+            print(f"\n🎤 VOSK RECOGNITION RESULTS:")
+            print(f"   - Total chunks processed: {frames_processed}")
+            print(f"   - Chunks with results: {chunks_with_results}")
+            print(f"   - Interim results collected: {len(interim_results)}")
+            if interim_results:
+                print(f"   - Interim text: {' '.join(interim_results)}")
+            print(f"   - Final recognized text: {final_text}")
             
-            if not final_text:
-                print("⚠️ No speech detected in audio")
+            # Combine interim and final results if we got something
+            combined_text = final_text
+            if not final_text and interim_results:
+                combined_text = ' '.join(interim_results)
             
-            return final_text.strip()
+            if not combined_text:
+                print("\n❌ NO SPEECH RECOGNIZED")
+                print("   Possible causes:")
+                print("   1. ⚠️ Audio is truly silent (check microphone volume)")
+                print("   2. ⚠️ Audio format is corrupted (resampling failed?)")
+                print("   3. ⚠️ Speech is in different language/heavy accent")
+                print("   4. ⚠️ Audio envelope is wrong (too soft to detect)")
+            
+            return combined_text.strip()
     
+    except wave.Error as e:
+        print(f"❌ Failed to read audio as WAV: {e}")
+        print("   This usually means the WAV encoding is broken")
+        raise ValueError(f"Invalid WAV audio format: {e}")
     except Exception as e:
         print(f"❌ Audio processing error: {str(e)}")
+        import traceback
+        traceback.print_exc()
         raise ValueError(f"Failed to process audio: {str(e)}")
 
 
@@ -193,7 +260,8 @@ async def health_check():
 async def assess_reading(
     age: int = Form(...),
     paragraph: str = Form(...),
-    audio_file: UploadFile = File(..., description="WAV audio file of user reading the paragraph")
+    audio_file: UploadFile = File(..., description="WAV audio file of user reading the paragraph"),
+    recognized_text: str = Form(default='', description="Optional: Pre-recognized text from frontend Web Speech API")
 ):
     """
     Complete reading assessment endpoint
@@ -208,6 +276,7 @@ async def assess_reading(
         age: User age for context-aware assessment
         paragraph: Reference text the user should read
         audio_file: WAV file containing the user's reading
+        recognized_text: Optional pre-recognized text from frontend for consistency
         
     Returns:
         Complete assessment with all metrics and recommendations
@@ -219,6 +288,9 @@ async def assess_reading(
         print(f"👤 Age: {age}")
         print(f"📖 Paragraph length: {len(paragraph)} characters")
         print(f"🎵 Audio file: {audio_file.filename} ({audio_file.size} bytes)")
+        print(f"🎤 Frontend recognized text received: '{recognized_text}'")
+        if recognized_text:
+            print(f"   → Length: {len(recognized_text)} chars, {len(recognized_text.split())} words")
         
         # Validate inputs
         if age < 5 or age > 100:
@@ -239,25 +311,35 @@ async def assess_reading(
         if len(audio_bytes) == 0:
             raise HTTPException(status_code=400, detail="Audio file is empty")
         
-        # Process audio to get recognized text
-        print("🎤 Processing audio with Vosk...")
-        recognized_text = process_audio_file(audio_bytes)
+        # PRIORITY 1: Use frontend Web Speech API recognition if provided (it's working!)
+        # This is the ACTUAL text the user said, captured in real-time
+        if recognized_text and recognized_text.strip():
+            print(f"✅ Using frontend Web Speech API recognition: '{recognized_text.strip()}'")
+            final_recognized_text = recognized_text.strip()
+            print(f"   → This is the actual words user spoke (captured live)")
+        else:
+            # PRIORITY 2: Fallback to Vosk only if frontend didn't capture anything
+            print("⚠️ No frontend recognition provided, trying Vosk as fallback...")
+            filename = audio_file.filename or 'audio.wav'
+            vosk_text = process_audio_file(audio_bytes, filename)
+            
+            if vosk_text:
+                print(f"✅ Vosk recognized: '{vosk_text}'")
+                final_recognized_text = vosk_text
+            else:
+                print("❌ Neither frontend nor Vosk detected speech")
+                final_recognized_text = "[No speech detected - silence in audio]"
         
-        if not recognized_text:
-            print("⚠️ No speech detected - using silent recognition")
-            # Don't fail if no speech - allow assessment to continue
-            recognized_text = "[No speech detected - silence in audio]"
-        
-        print(f"✅ Recognition complete: {recognized_text}")
+        print(f"\n🎤 FINAL RECOGNIZED TEXT: '{final_recognized_text}'\n")
         
         # ========== Text Comparison ==========
         print("📊 Comparing texts...")
-        comparison_result = compare_text(paragraph, recognized_text)
+        comparison_result = compare_text(paragraph, final_recognized_text)
         print(f"✅ Accuracy: {comparison_result['accuracy_percent']}%")
         
         # ========== Reading Speed Analysis ==========
         speed_analyzer = ReadingSpeedAnalyzer()
-        spoken_words = len(recognized_text.split())
+        spoken_words = len(final_recognized_text.split())
         
         # Estimate reading time from audio length (approximate)
         audio_length_seconds = len(audio_bytes) / (16000 * 2)  # 16kHz, 16-bit
@@ -310,7 +392,7 @@ async def assess_reading(
         print("✅ Building assessment response...")
         response = AssessmentResponse(
             reference_text=paragraph,
-            recognized_text=recognized_text,
+            recognized_text=final_recognized_text,
             age=age,
             speed_metrics=SpeedMetrics(
                 elapsed_time_seconds=elapsed_time,

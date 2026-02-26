@@ -6,7 +6,8 @@ const API_BASE_URL = 'http://localhost:8000';
 export const assessReading = async (
   age: number,
   paragraph: string,
-  audioBlob: Blob
+  audioBlob: Blob,
+  recognizedText: string = ''
 ): Promise<AssessmentResponse> => {
   try {
     // Validate inputs
@@ -31,12 +32,16 @@ export const assessReading = async (
       paragraphLength: paragraph.length,
       audioSize: `${(audioBlob.size / 1024).toFixed(2)} KB`,
       audioType: audioBlob.type,
+      recognizedTextLength: recognizedText.length,
     });
 
     const formData = new FormData();
     formData.append('age', String(age));
     formData.append('paragraph', paragraph);
     formData.append('audio_file', audioBlob, 'recording.wav');
+    if (recognizedText) {
+      formData.append('recognized_text', recognizedText);
+    }
 
     const response = await axios.post<AssessmentResponse>(
       `${API_BASE_URL}/assess`,

@@ -1,13 +1,11 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { useMediaRecorder } from '../hooks/useMediaRecorder';
-import { WavEncoder } from '../utils/audioEncoder';
-import { AudioResampler } from '../utils/audioResampler';
 import './ReadingTask.css';
 
 interface ReadingTaskProps {
   age: number;
   paragraph: string;
-  onComplete: (audioBlob: Blob) => void;
+  onComplete: (audioBlob: Blob, recognizedText: string) => void;
 }
 
 export const ReadingTask: React.FC<ReadingTaskProps> = ({
@@ -19,147 +17,49 @@ export const ReadingTask: React.FC<ReadingTaskProps> = ({
     useMediaRecorder();
   const [isStarted, setIsStarted] = useState(false);
   const [error, setError] = useState<string>('');
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const mediaStreamAudioSourceRef = useRef<MediaStreamAudioSource | null>(null);
-  const scriptProcessorRef = useRef<ScriptProcessorNode | null>(null);
-  const audioChunksRef = useRef<Float32Array[]>([]);
-  const streamRef = useRef<MediaStream | null>(null);
 
   const handleStartReading = async () => {
     setError('');
     setIsStarted(true);
-    audioChunksRef.current = [];
 
     try {
-      console.log('🎤 Requesting microphone access...');
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
-        }
-      });
-      streamRef.current = stream;
-      console.log('✅ Microphone accessed');
-
-      // Initialize Web Audio API for raw PCM capture
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      audioContextRef.current = audioContext;
-
-      console.log(`🎵 Audio context created - Sample rate: ${audioContext.sampleRate} Hz`);
-
-      const audioSource = audioContext.createMediaStreamSource(stream);
-      mediaStreamAudioSourceRef.current = audioSource;
-
-      // Create script processor to capture raw audio
-      const scriptProcessor = audioContext.createScriptProcessor(4096, 1, 1);
-      scriptProcessorRef.current = scriptProcessor;
-
-      let processedCount = 0;
-      scriptProcessor.onaudioprocess = (event: AudioProcessingEvent) => {
-        const inputData = event.inputBuffer.getChannelData(0);
-        // Store a copy of the data
-        audioChunksRef.current.push(new Float32Array(inputData));
-        processedCount++;
-        
-        if (processedCount % 10 === 0) {
-          console.log(`📊 Audio processing: ${processedCount} chunks captured`);
-        }
-      };
-
-      audioSource.connect(scriptProcessor);
-      scriptProcessor.connect(audioContext.destination);
-
-      console.log('🎙️ Audio capture started - Speak now!');
-      startRecording();
+      console.log('🎤 Starting audio recording and live recognition...');
+      await startRecording();
+      console.log('✅ Recording started');
     } catch (err: any) {
-      console.error('❌ Microphone error:', err);
+      console.error('❌ Recording error:', err);
       setError('Failed to access microphone. Please check: 1) Browser permissions, 2) Microphone is connected, 3) Try a different browser');
       setIsStarted(false);
     }
   };
 
   const handleStopReading = async () => {
-    stopRecording();
-
-    console.log('📊 Audio capture stats:', {
-      chunks: audioChunksRef.current.length,
-      totalSamples: audioChunksRef.current.reduce((acc, chunk) => acc + chunk.length, 0),
-      sampleRate: audioContextRef.current?.sampleRate || 'unknown',
-    });
-
-    // Clean up audio context
-    if (scriptProcessorRef.current && mediaStreamAudioSourceRef.current) {
-      mediaStreamAudioSourceRef.current.disconnect(scriptProcessorRef.current);
-      scriptProcessorRef.current.disconnect();
-    }
-
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-    }
-
-    if (audioContextRef.current) {
-      audioContextRef.current.close();
-    }
-
-    // Convert audio chunks to WAV
     try {
-      const totalLength = audioChunksRef.current.reduce(
-        (acc, chunk) => acc + chunk.length,
-        0
-      );
+      console.log('⏹ Stopping recording...');
+      const audioBlob = await stopRecording();
 
-      if (totalLength === 0) {
-        setError('No audio was captured. Please try again and speak clearly into the microphone.');
+      console.log(`✅ Audio blob received: ${(audioBlob.size / 1024).toFixed(2)} KB`);
+
+      if (audioBlob.size === 0) {
+        setError('Failed to record audio. Please try again.');
         setIsStarted(false);
         return;
       }
 
-      console.log(`📦 Processing ${totalLength} audio samples...`);
-
-      const audioData = new Float32Array(totalLength);
-      let offset = 0;
-
-      for (const chunk of audioChunksRef.current) {
-        audioData.set(chunk, offset);
-        offset += chunk.length;
-      }
-
-      const originalSampleRate = audioContextRef.current?.sampleRate || 44100;
-
-      // Resample to 16000 Hz if needed
-      let audioToEncode = audioData;
-      if (originalSampleRate !== 16000) {
-        console.log(
-          `🔄 Resampling from ${originalSampleRate}Hz to 16000Hz...`
-        );
-        audioToEncode = AudioResampler.resample(audioData, originalSampleRate, 16000);
-      }
-
-      // Encode to WAV format with 16000 Hz sample rate
-      const encoder = new WavEncoder(16000, 1);
-      const wavBuffer = encoder.encode(audioToEncode);
-      const wavBlob = new Blob([wavBuffer], { type: 'audio/wav' });
-
-      console.log(`✅ WAV file created: ${(wavBlob.size / 1024).toFixed(2)} KB`);
-
-      if (wavBlob.size === 0) {
-        setError('Failed to create audio file. Please try again.');
-        setIsStarted(false);
-        return;
-      }
-
-      if (wavBlob.size < 1000) {
+      if (audioBlob.size < 1000) {
         setError('Audio file is too small. Please record for at least a few seconds.');
         setIsStarted(false);
         return;
       }
 
+      // Get the complete final recognized text from the hook's ref (more reliable than state)
+      const finalText = recognizedText || '';
       console.log('🎵 Audio ready, sending to backend...');
-      onComplete(wavBlob);
+      console.log(`🎤 Complete recognized text (${finalText.split(' ').filter(w => w).length} words): "${finalText}"`);
+      onComplete(audioBlob, finalText);
     } catch (err: any) {
-      console.error('❌ Audio processing error:', err);
-      setError(`Failed to process audio: ${err.message}`);
+      console.error('❌ Stop recording error:', err);
+      setError(`Failed to stop recording: ${err.message}`);
       setIsStarted(false);
     }
   };

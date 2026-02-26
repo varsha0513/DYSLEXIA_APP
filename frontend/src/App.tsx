@@ -38,13 +38,13 @@ function App() {
     setState('reading');
   };
 
-  const handleReadingComplete = async (audioBlob: Blob) => {
+  const handleReadingComplete = async (audioBlob: Blob, recognizedText: string) => {
     setState('loading');
     setError('');
 
     try {
       console.log('📤 Processing assessment...');
-      const response = await assessReading(age, paragraph, audioBlob);
+      const response = await assessReading(age, paragraph, audioBlob, recognizedText);
       console.log('📊 Assessment response received:', response);
       setResults(response);
       setState('results');
