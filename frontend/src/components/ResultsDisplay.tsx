@@ -1,5 +1,6 @@
 import React from 'react';
 import { AssessmentResponse } from '../types';
+import { AssistanceWidget } from './AssistanceWidget';
 import './ResultsDisplay.css';
 
 interface ResultsDisplayProps {
@@ -163,6 +164,9 @@ export const ResultsDisplay: React.FC<ResultsDisplayProps> = ({
             </div>
           </div>
         </div>
+
+        {/* Assistance Module - TTS Help */}
+        {results.assistance && <AssistanceWidget assistance={results.assistance} />}
 
         <button className="btn btn-restart" onClick={onRestart}>
           🔄 Try Another Assessment

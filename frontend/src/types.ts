@@ -26,6 +26,15 @@ export interface RiskAssessment {
   summary: string;
 }
 
+export interface AssistanceData {
+  has_errors: boolean;
+  error_count: number;
+  wrong_words: Array<[string, string]>; // [spoken, correct]
+  missing_words: string[];
+  extra_words: string[];
+  assistance_enabled: boolean;
+}
+
 export interface AssessmentResponse {
   reference_text: string;
   recognized_text: string;
@@ -35,6 +44,7 @@ export interface AssessmentResponse {
   accuracy_feedback: string;
   difficulty_assessment: string;
   risk_assessment: RiskAssessment;
+  assistance?: AssistanceData;
   status: string;
 }
 

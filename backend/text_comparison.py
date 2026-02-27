@@ -1,5 +1,6 @@
 import re
 from difflib import SequenceMatcher
+from typing import Dict, List, Tuple
 
 
 def clean_text(text):
@@ -13,6 +14,51 @@ def clean_text(text):
     text = re.sub(r"[^a-z\s]", "", text)   # remove punctuation
     text = re.sub(r"\s+", " ", text).strip()
     return text
+
+
+def get_word_level_errors(reference_text: str, spoken_text: str) -> Dict:
+    """
+    Get detailed word-level error information for assistance
+    
+    Args:
+        reference_text (str): The original paragraph to be read
+        spoken_text (str): The text recognized by Vosk
+    
+    Returns:
+        dict: Contains:
+            - wrong_words: List of (spoken, correct) tuples
+            - missing_words: List of words that were skipped
+            - extra_words: List of extra words spoken
+    """
+    ref = clean_text(reference_text).split()
+    spoken = clean_text(spoken_text).split()
+    
+    matcher = SequenceMatcher(None, ref, spoken)
+    
+    wrong_words = []
+    missing_words = []
+    extra_words = []
+    
+    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+        if tag == "replace":
+            # Words that were said incorrectly
+            for k in range(max(i2 - i1, j2 - j1)):
+                wrong = spoken[j1 + k] if j1 + k < j2 else "[missing]"
+                correct = ref[i1 + k] if i1 + k < i2 else "[extra]"
+                if wrong != "[missing]" and correct != "[extra]":
+                    wrong_words.append((wrong, correct))
+        elif tag == "delete":
+            # Words that were skipped
+            missing_words.extend(ref[i1:i2])
+        elif tag == "insert":
+            # Extra words that were added
+            extra_words.extend(spoken[j1:j2])
+    
+    return {
+        "wrong_words": wrong_words,
+        "missing_words": missing_words,
+        "extra_words": extra_words
+    }
 
 
 def compare_text(reference_text, spoken_text):
@@ -31,6 +77,7 @@ def compare_text(reference_text, spoken_text):
             - missing_words: Words that were skipped
             - extra_words: Additional words spoken
             - accuracy_percent: Accuracy as percentage
+            - word_level_errors: Detailed error information
     """
     ref = clean_text(reference_text).split()
     spoken = clean_text(spoken_text).split()
@@ -54,6 +101,9 @@ def compare_text(reference_text, spoken_text):
 
     total_ref_words = len(ref)
     accuracy = (correct / total_ref_words) * 100 if total_ref_words > 0 else 0
+    
+    # Get word-level error details
+    word_errors = get_word_level_errors(reference_text, spoken_text)
 
     return {
         "total_words": total_ref_words,
@@ -61,7 +111,8 @@ def compare_text(reference_text, spoken_text):
         "wrong_words": wrong,
         "missing_words": missing,
         "extra_words": extra,
-        "accuracy_percent": round(accuracy, 2)
+        "accuracy_percent": round(accuracy, 2),
+        "word_level_errors": word_errors
     }
 
 

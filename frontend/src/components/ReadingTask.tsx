@@ -13,7 +13,7 @@ export const ReadingTask: React.FC<ReadingTaskProps> = ({
   paragraph,
   onComplete,
 }) => {
-  const { startRecording, stopRecording, isRecording, recognizedText } =
+  const { startRecording, stopRecording, isRecording, recognizedText, getFinalText } =
     useMediaRecorder();
   const [isStarted, setIsStarted] = useState(false);
   const [error, setError] = useState<string>('');
@@ -52,8 +52,8 @@ export const ReadingTask: React.FC<ReadingTaskProps> = ({
         return;
       }
 
-      // Get the complete final recognized text from the hook's ref (more reliable than state)
-      const finalText = recognizedText || '';
+      // Get the complete final recognized text
+      const finalText = getFinalText();
       console.log('🎵 Audio ready, sending to backend...');
       console.log(`🎤 Complete recognized text (${finalText.split(' ').filter(w => w).length} words): "${finalText}"`);
       onComplete(audioBlob, finalText);

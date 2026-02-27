@@ -5,16 +5,19 @@ Wraps the complete reading assessment pipeline into REST endpoints
 
 from fastapi import FastAPI, File, UploadFile, HTTPException, Form
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 import io
 import wave
 import json
 import os
+import time
 from vosk import Model, KaldiRecognizer
 from text_comparison import compare_text, get_performance_feedback
 from reading_speed import ReadingSpeedAnalyzer
 from dyslexia_risk_scoring import DyslexiaRiskScorer
+from text_to_speech import DyslexiaAssistanceEngine
 
 # Initialize FastAPI
 app = FastAPI(
@@ -38,6 +41,14 @@ if not os.path.exists(model_path):
     raise RuntimeError(f"❌ Vosk model not found at {model_path}. Please download it first.")
 
 model = Model(model_path)
+
+# Initialize TTS Engine for Assistance Module
+try:
+    tts_engine = DyslexiaAssistanceEngine(rate=100, volume=0.9)
+    print("✅ Assistance Module (TTS) ready")
+except Exception as e:
+    print(f"⚠️ TTS Engine initialization warning: {e}")
+    tts_engine = None
 
 
 # ================== Pydantic Models ==================
@@ -87,6 +98,22 @@ class RiskAssessment(BaseModel):
     summary: str
 
 
+class WordError(BaseModel):
+    """Individual word error with correction"""
+    spoken: str
+    correct: str
+
+
+class AssistanceData(BaseModel):
+    """Assistance module data for helping users"""
+    has_errors: bool
+    error_count: int
+    wrong_words: list  # List of (spoken, correct) tuples
+    missing_words: list  # List of missing words
+    extra_words: list  # List of extra words
+    assistance_enabled: bool
+
+
 class AssessmentResponse(BaseModel):
     """Complete assessment response"""
     reference_text: str
@@ -97,6 +124,7 @@ class AssessmentResponse(BaseModel):
     accuracy_feedback: str
     difficulty_assessment: str
     risk_assessment: RiskAssessment
+    assistance: Optional[AssistanceData] = None
     status: str = "success"
 
 
@@ -235,6 +263,74 @@ def process_audio_file(audio_bytes: bytes, filename: str = 'audio.wav') -> str:
 
 # ================== API Endpoints ==================
 
+@app.post("/tts/word")
+async def generate_word_pronunciation(word: str = Form(...)):
+    """
+    Generate audio pronunciation for a word
+    
+    Args:
+        word: Word to pronounce
+        
+    Returns:
+        WAV audio file of word pronunciation
+    """
+    try:
+        if not word or len(word.strip()) == 0:
+            raise HTTPException(status_code=400, detail="Word cannot be empty")
+        
+        if not tts_engine:
+            raise HTTPException(status_code=503, detail="TTS Engine not available")
+        
+        print(f"🔊 Generating pronunciation for: '{word}'")
+        audio_bytes, _ = tts_engine.generate_audio_file(word)
+        
+        if not audio_bytes:
+            raise HTTPException(status_code=500, detail="Failed to generate audio")
+        
+        return StreamingResponse(
+            io.BytesIO(audio_bytes),
+            media_type="audio/wav",
+            headers={"Content-Disposition": f"attachment; filename={word}.wav"}
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ TTS Error: {e}")
+        raise HTTPException(status_code=500, detail=f"TTS generation failed: {str(e)}")
+
+
+@app.post("/tts/correction")
+async def get_word_correction(wrong_word: str = Form(...), correct_word: str = Form(...)):
+    """
+    Get complete word correction assistance (audio + feedback)
+    
+    Args:
+        wrong_word: Word spoken by user
+        correct_word: Correct word to learn
+        
+    Returns:
+        JSON with audio URL and assistance message
+    """
+    try:
+        if not wrong_word or not correct_word:
+            raise HTTPException(status_code=400, detail="Both words required")
+        
+        if not tts_engine:
+            raise HTTPException(status_code=503, detail="TTS Engine not available")
+        
+        print(f"🆘 Generating correction: '{wrong_word}' → '{correct_word}'")
+        assistance = tts_engine.generate_word_assistance(wrong_word, correct_word)
+        
+        return assistance
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Correction Error: {e}")
+        raise HTTPException(status_code=500, detail=f"Correction generation failed: {str(e)}")
+
+
 @app.get("/")
 async def root():
     """Health check and API information"""
@@ -245,7 +341,16 @@ async def root():
         "endpoints": {
             "assess_with_audio": "POST /assess - Send paragraph, age, and audio file",
             "assess_with_text": "POST /assess-text - Send paragraph, age, and recognized text (for testing)",
+            "tts_word": "POST /tts/word - Generate audio pronunciation for a word",
+            "tts_correction": "POST /tts/correction - Get word correction with audio assistance",
             "health": "GET /health - Health status"
+        },
+        "features": {
+            "speech_recognition": "Vosk-based real-time recognition",
+            "accuracy_analysis": "Word-level comparison",
+            "speed_analysis": "WPM calculation",
+            "dyslexia_risk": "Comprehensive scoring",
+            "assistance_module": "TTS-based pronunciation help 🆘"
         }
     }
 
@@ -292,6 +397,10 @@ async def assess_reading(
         if recognized_text:
             print(f"   → Length: {len(recognized_text)} chars, {len(recognized_text.split())} words")
         
+        # Timing
+        start_time = time.time()
+        step_times = {}
+        
         # Validate inputs
         if age < 5 or age > 100:
             raise HTTPException(status_code=400, detail="Age must be between 5 and 100")
@@ -306,7 +415,8 @@ async def assess_reading(
         # Read audio file
         print("📥 Reading audio file...")
         audio_bytes = await audio_file.read()
-        print(f"✅ Audio file read: {len(audio_bytes)} bytes")
+        step_times['read_audio'] = time.time()
+        print(f"✅ Audio file read: {len(audio_bytes)} bytes ({(time.time()-start_time):.2f}s)")
         
         if len(audio_bytes) == 0:
             raise HTTPException(status_code=400, detail="Audio file is empty")
@@ -317,11 +427,13 @@ async def assess_reading(
             print(f"✅ Using frontend Web Speech API recognition: '{recognized_text.strip()}'")
             final_recognized_text = recognized_text.strip()
             print(f"   → This is the actual words user spoke (captured live)")
+            step_times['speech_recognition'] = time.time()
         else:
             # PRIORITY 2: Fallback to Vosk only if frontend didn't capture anything
             print("⚠️ No frontend recognition provided, trying Vosk as fallback...")
             filename = audio_file.filename or 'audio.wav'
             vosk_text = process_audio_file(audio_bytes, filename)
+            step_times['speech_recognition'] = time.time()
             
             if vosk_text:
                 print(f"✅ Vosk recognized: '{vosk_text}'")
@@ -334,10 +446,13 @@ async def assess_reading(
         
         # ========== Text Comparison ==========
         print("📊 Comparing texts...")
+        compare_start = time.time()
         comparison_result = compare_text(paragraph, final_recognized_text)
-        print(f"✅ Accuracy: {comparison_result['accuracy_percent']}%")
+        step_times['text_comparison'] = time.time() - compare_start
+        print(f"✅ Accuracy: {comparison_result['accuracy_percent']}% ({step_times['text_comparison']:.2f}s)")
         
         # ========== Reading Speed Analysis ==========
+        speed_start = time.time()
         speed_analyzer = ReadingSpeedAnalyzer()
         spoken_words = len(final_recognized_text.split())
         
@@ -349,11 +464,13 @@ async def assess_reading(
         elapsed_time = speed_analyzer.get_elapsed_time()
         wpm = speed_analyzer.calculate_wpm(spoken_words)
         speed_category = speed_analyzer.get_reading_speed_category(wpm)
+        step_times['speed_analysis'] = time.time() - speed_start
         
-        print(f"⏱️ Reading time: {elapsed_time:.2f}s, WPM: {wpm:.1f}")
+        print(f"⏱️ Reading time: {elapsed_time:.2f}s, WPM: {wpm:.1f} ({step_times['speed_analysis']:.2f}s)")
         
         # ========== Dyslexia Risk Scoring ==========
         print("📈 Calculating dyslexia risk...")
+        risk_start = time.time()
         risk_scorer = DyslexiaRiskScorer()
         risk_assessment = risk_scorer.calculate_risk_score(
             wpm=wpm,
@@ -364,7 +481,8 @@ async def assess_reading(
             total_words=comparison_result['total_words'],
             pause_count=0
         )
-        print(f"⚠️ Risk Level: {risk_assessment['risk_level']}")
+        step_times['risk_scoring'] = time.time() - risk_start
+        print(f"⚠️ Risk Level: {risk_assessment['risk_level']} ({step_times['risk_scoring']:.2f}s)")
         
         # ========== Generate Feedback ==========
         accuracy_feedback = get_performance_feedback(comparison_result['accuracy_percent'])
@@ -388,8 +506,41 @@ async def assess_reading(
         else:
             difficulty = "🚩 Too challenging - Start with beginner passages"
         
+        # ========== Generate Assistance Data ==========
+        print("🆘 Generating assistance module data...")
+        assistance_start = time.time()
+        assistance_data = None
+        
+        if tts_engine and (comparison_result['wrong_words'] > 0 or comparison_result['missing_words'] > 0):
+            word_level_errors = comparison_result.get('word_level_errors', {})
+            wrong_words = word_level_errors.get('wrong_words', [])
+            missing_words = word_level_errors.get('missing_words', [])
+            extra_words = word_level_errors.get('extra_words', [])
+            
+            assistance_data = AssistanceData(
+                has_errors=True,
+                error_count=len(wrong_words) + len(missing_words),
+                wrong_words=[[w, c] for w, c in wrong_words],  # Convert tuples to lists for JSON
+                missing_words=missing_words,
+                extra_words=extra_words,
+                assistance_enabled=True
+            )
+            step_times['assistance'] = time.time() - assistance_start
+            print(f"✅ Assistance data generated: {assistance_data.error_count} errors found ({step_times['assistance']:.2f}s)")
+        else:
+            assistance_data = AssistanceData(
+                has_errors=False,
+                error_count=0,
+                wrong_words=[],
+                missing_words=[],
+                extra_words=[],
+                assistance_enabled=tts_engine is not None
+            )
+            step_times['assistance'] = time.time() - assistance_start
+        
         # ========== Build Response ==========
         print("✅ Building assessment response...")
+        response_start = time.time()
         response = AssessmentResponse(
             reference_text=paragraph,
             recognized_text=final_recognized_text,
@@ -407,8 +558,19 @@ async def assess_reading(
             accuracy_feedback=accuracy_feedback,
             difficulty_assessment=difficulty,
             risk_assessment=RiskAssessment(**risk_assessment),
+            assistance=assistance_data,
             status="success"
         )
+        
+        # Print timing summary
+        total_time = time.time() - start_time
+        print(f"\n{'='*70}")
+        print(f"⏱️ PERFORMANCE SUMMARY")
+        print(f"{'='*70}")
+        for step, duration in step_times.items():
+            print(f"  {step:.<40} {duration:>8.2f}s")
+        print(f"  {'TOTAL':.<40} {total_time:>8.2f}s")
+        print(f"{'='*70}\n")
         
         print(f"{'='*70}")
         print(f"✅ ASSESSMENT COMPLETE - SENDING RESPONSE")
