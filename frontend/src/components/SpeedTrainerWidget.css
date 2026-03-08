@@ -1,0 +1,655 @@
+/* Speed Trainer Widget Styles */
+
+/* Main Widget Container */
+.speed-trainer-widget {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 16px;
+  padding: 30px;
+  margin: 20px 0;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+  color: white;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  animation: slideInUp 0.4s ease-out;
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Container */
+.speed-trainer-container {
+  background: rgba(255, 255, 255, 0.95);
+  color: #333;
+  border-radius: 16px;
+  padding: 40px;
+  max-width: 900px;
+  margin: 0 auto;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+}
+
+/* Header */
+.speed-trainer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+  padding-bottom: 20px;
+  border-bottom: 2px solid rgba(102, 126, 234, 0.2);
+}
+
+.speed-trainer-header h2 {
+  font-size: 2em;
+  margin: 0;
+  color: #667eea;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.close-btn {
+  background: transparent;
+  border: 2px solid #ddd;
+  color: #666;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  font-size: 1.2em;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.close-btn:hover {
+  background: #f5f5f5;
+  color: #333;
+  border-color: #999;
+}
+
+/* Introduction Section */
+.speed-trainer-intro {
+  background: #f8f9ff;
+  border-radius: 12px;
+  padding: 25px;
+  margin-bottom: 30px;
+  border-left: 4px solid #667eea;
+}
+
+.speed-trainer-intro p {
+  font-size: 1.1em;
+  line-height: 1.8;
+  margin: 0 0 20px 0;
+  color: #555;
+}
+
+.speed-info {
+  display: flex;
+  justify-content: space-around;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+.speed-level {
+  background: white;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-weight: 600;
+  color: #667eea;
+  border: 2px solid #667eea;
+  transition: all 0.3s ease;
+  text-align: center;
+}
+
+.speed-level:hover {
+  background: #667eea;
+  color: white;
+}
+
+/* Round Info Section */
+.round-info {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 25px;
+  border-radius: 12px;
+  margin-bottom: 30px;
+  box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.round-badge {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 0.95em;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+}
+
+.wpm-display {
+  font-size: 2.5em;
+  font-weight: 700;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.interval-display {
+  font-size: 0.95em;
+  opacity: 0.9;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 8px 12px;
+  border-radius: 6px;
+}
+
+/* Progress Container */
+.progress-container {
+  margin-bottom: 35px;
+}
+
+.progress-bar {
+  height: 10px;
+  background: #e0e0e0;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 10px;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  transition: width 0.4s ease;
+  box-shadow: 0 0 10px rgba(102, 126, 234, 0.5);
+}
+
+.progress-text {
+  text-align: center;
+  font-size: 0.9em;
+  color: #666;
+  font-weight: 500;
+}
+
+/* Text Display Container */
+.text-display-container {
+  background: #f8f9ff;
+  border-radius: 12px;
+  padding: 30px;
+  margin-bottom: 30px;
+  border: 2px solid rgba(102, 126, 234, 0.2);
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.text-display {
+  font-size: 1.3em;
+  line-height: 2;
+  text-align: center;
+  color: #333;
+  word-spacing: 0.3em;
+  letter-spacing: 0.05em;
+  flex-wrap: wrap;
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* Word styling */
+.word {
+  display: inline-block;
+  padding: 4px 8px;
+  margin: 4px 4px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  cursor: default;
+}
+
+.word.highlight {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  font-weight: 700;
+  padding: 6px 12px;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+  transform: scale(1.1);
+  animation: highlightPulse 0.4s ease;
+}
+
+@keyframes highlightPulse {
+  0% {
+    transform: scale(1.05);
+  }
+  50% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1.1);
+  }
+}
+
+/* Current Word Emphasis */
+.current-word-emphasis {
+  background: #fff3cd;
+  border-radius: 12px;
+  padding: 25px;
+  margin-bottom: 30px;
+  border-left: 4px solid #ffc107;
+  text-align: center;
+}
+
+.current-word-label {
+  font-size: 0.9em;
+  color: #856404;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.current-word-large {
+  font-size: 3em;
+  font-weight: 700;
+  color: #667eea;
+  letter-spacing: 2px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  min-height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Control Buttons */
+.control-buttons {
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+  margin-bottom: 30px;
+  flex-wrap: wrap;
+}
+
+.btn {
+  padding: 14px 32px;
+  font-size: 1.05em;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #5568d3 0%, #64398a 100%);
+}
+
+.btn-secondary {
+  background: white;
+  color: #667eea;
+  border: 2px solid #667eea;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: #667eea;
+  color: white;
+}
+
+.btn-start-training {
+  width: 100%;
+  padding: 18px;
+  font-size: 1.2em;
+  margin-top: 20px;
+}
+
+.btn-start,
+.btn-pause,
+.btn-reset {
+  min-width: 150px;
+}
+
+/* Completion Message */
+.completion-message {
+  background: linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%);
+  border-radius: 12px;
+  padding: 40px;
+  text-align: center;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+  animation: slideInUp 0.5s ease-out;
+  margin-top: 30px;
+}
+
+.completion-icon {
+  font-size: 4em;
+  margin-bottom: 15px;
+  animation: bounce 1s ease-in-out infinite;
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.completion-message h3 {
+  font-size: 2em;
+  color: #333;
+  margin: 15px 0;
+}
+
+.completion-message p {
+  font-size: 1.1em;
+  color: #555;
+  margin: 10px 0;
+  line-height: 1.6;
+}
+
+.completion-stats {
+  background: rgba(255, 255, 255, 0.7);
+  padding: 20px;
+  border-radius: 8px;
+  margin: 20px 0;
+  text-align: left;
+}
+
+.completion-stats p {
+  margin: 10px 0;
+  font-size: 1em;
+}
+
+.completion-stats strong {
+  color: #667eea;
+}
+
+/* Error Message */
+.error-message {
+  background: #ffebee;
+  color: #c62828;
+  padding: 15px;
+  border-radius: 8px;
+  margin: 20px 0;
+  border-left: 4px solid #c62828;
+  font-size: 0.95em;
+}
+
+/* Loading Spinner */
+.loading-spinner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+}
+
+.spinner {
+  width: 50px;
+  height: 50px;
+  border: 5px solid #e0e0e0;
+  border-top: 5px solid #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 20px;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Countdown Overlay */
+.countdown-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(5px);
+  animation: countdownFadeIn 0.3s ease-out;
+}
+
+@keyframes countdownFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes countdownFadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.countdown-content {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.countdown-number {
+  font-size: clamp(4em, 15vw, 12em);
+  font-weight: 900;
+  color: white;
+  letter-spacing: 0.1em;
+  line-height: 1;
+  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  animation: countdownPulse 1s ease-in-out infinite;
+}
+
+@keyframes countdownPulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.8;
+  }
+}
+
+.countdown-subtext {
+  font-size: clamp(1.5em, 4vw, 2.5em);
+  color: #4caf50;
+  margin-top: 20px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  animation: slideDown 0.5s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Button disabled state during countdown */
+.control-buttons button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .speed-trainer-widget {
+    padding: 15px;
+  }
+
+  .speed-trainer-container {
+    padding: 20px;
+  }
+
+  .speed-trainer-header {
+    flex-direction: column;
+    gap: 15px;
+  }
+
+  .speed-trainer-header h2 {
+    font-size: 1.6em;
+  }
+
+  .round-info {
+    flex-direction: column;
+  }
+
+  .text-display-container {
+    padding: 15px;
+    min-height: 100px;
+  }
+
+  .text-display {
+    font-size: 1em;
+  }
+
+  .word {
+    margin: 2px 2px;
+    padding: 2px 4px;
+  }
+
+  .word.highlight {
+    padding: 4px 8px;
+  }
+
+  .current-word-large {
+    font-size: 2em;
+  }
+
+  .control-buttons {
+    flex-direction: column;
+  }
+
+  .btn {
+    width: 100%;
+  }
+
+  .btn-start,
+  .btn-pause,
+  .btn-reset {
+    min-width: auto;
+  }
+
+  .speed-info {
+    gap: 10px;
+  }
+
+  .speed-level {
+    padding: 8px 12px;
+    font-size: 0.85em;
+  }
+
+  .completion-message {
+    padding: 30px 15px;
+  }
+
+  .completion-message h3 {
+    font-size: 1.5em;
+  }
+
+  .completion-icon {
+    font-size: 3em;
+  }
+}
+
+@media (max-width: 480px) {
+  .speed-trainer-widget {
+    padding: 10px;
+    margin: 10px 0;
+  }
+
+  .speed-trainer-container {
+    padding: 15px;
+  }
+
+  .speed-trainer-header h2 {
+    font-size: 1.3em;
+  }
+
+  .wpm-display {
+    font-size: 1.8em;
+  }
+
+  .round-badge {
+    font-size: 0.8em;
+    padding: 6px 12px;
+  }
+
+  .text-display {
+    font-size: 0.95em;
+    line-height: 1.6;
+  }
+
+  .current-word-large {
+    font-size: 1.6em;
+    min-height: 60px;
+  }
+
+  .btn {
+    padding: 12px 20px;
+    font-size: 0.9em;
+  }
+
+  .control-buttons {
+    gap: 8px;
+  }
+
+  .completion-message {
+    padding: 20px 10px;
+  }
+
+  .completion-stats {
+    padding: 15px;
+  }
+}

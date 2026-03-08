@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { AssessmentResponse } from '../types';
 import { AssistanceWidget } from './AssistanceWidget';
+import { PronunciationTrainingWidget } from './PronunciationTrainingWidget';
+import SpeedTrainerWidget from './SpeedTrainerWidget';
 import './ResultsDisplay.css';
 
 interface ResultsDisplayProps {
@@ -12,6 +14,7 @@ export const ResultsDisplay: React.FC<ResultsDisplayProps> = ({
   results,
   onRestart,
 }) => {
+  const [showSpeedTrainer, setShowSpeedTrainer] = useState(false);
   const {
     accuracy_metrics,
     speed_metrics,
@@ -167,6 +170,41 @@ export const ResultsDisplay: React.FC<ResultsDisplayProps> = ({
 
         {/* Assistance Module - TTS Help */}
         {results.assistance && <AssistanceWidget assistance={results.assistance} />}
+
+        {/* Pronunciation Training - Interactive Learning */}
+        {results.assistance && results.assistance.has_errors && (
+          <PronunciationTrainingWidget
+            words={[
+              ...results.assistance.wrong_words.map(([_, correct]) => correct),
+              ...results.assistance.missing_words,
+            ]}
+            onComplete={(results) => {
+              console.log('✅ Pronunciation training complete:', results);
+            }}
+          />
+        )}
+
+        {/* Speed Trainer - Guided Pace Reading */}
+        <div className="training-options">
+          <h3>📚 More Training Options</h3>
+          <div className="training-buttons">
+            <button
+              className="btn btn-training-option"
+              onClick={() => setShowSpeedTrainer(true)}
+            >
+              🚀 Improve Reading Speed
+            </button>
+          </div>
+        </div>
+
+        {/* Speed Training Widget Modal */}
+        {showSpeedTrainer && (
+          <SpeedTrainerWidget
+            paragraph={results.reference_text}
+            isShowing={showSpeedTrainer}
+            onClose={() => setShowSpeedTrainer(false)}
+          />
+        )}
 
         <button className="btn btn-restart" onClick={onRestart}>
           🔄 Try Another Assessment

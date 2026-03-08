@@ -1,41 +1,49 @@
 """
 Text-to-Speech (TTS) Module for Dyslexia Assistance
-Uses pyttsx3 for offline, reliable pronunciation guidance
+Uses subprocess to isolate pyttsx3 instances and handle multiple requests
 """
 
-import pyttsx3
+import subprocess
 import io
 import base64
 from typing import Dict, List, Tuple
 import json
+import hashlib
+import os
+import tempfile
+import sys
 
 
 class DyslexiaAssistanceEngine:
     """
     Provides pronunciation assistance for incorrect words
     Generates audio files for corrected words and detailed feedback
+    Uses subprocess to isolate TTS instances
     """
     
     def __init__(self, rate: int = 100, volume: float = 0.9):
         """
-        Initialize TTS engine
+        Initialize TTS engine (subprocess-based)
         
         Args:
             rate: Speech rate (100 = normal, 50-300 available)
             volume: Volume level (0.0-1.0)
         """
-        try:
-            self.engine = pyttsx3.init()
-            self.engine.setProperty('rate', rate)
-            self.engine.setProperty('volume', volume)
-            print("✅ TTS Engine initialized successfully")
-        except Exception as e:
-            print(f"⚠️ Could not initialize TTS engine: {e}")
+        self.engine = True  # Mark as available
+        self.rate = rate
+        self.volume = volume
+        self.worker_script = os.path.join(os.path.dirname(__file__), 'tts_worker.py')
+        
+        # Check if worker script exists
+        if os.path.exists(self.worker_script):
+            print("[OK] TTS Engine initialized successfully (subprocess mode)")
+        else:
+            print(f"[WARN] TTS worker script not found: {self.worker_script}")
             self.engine = None
     
     def generate_audio_file(self, text: str) -> Tuple[bytes, str]:
         """
-        Generate audio bytes for given text
+        Generate audio bytes for given text using subprocess isolation
         
         Args:
             text: Text to convert to speech
@@ -48,15 +56,42 @@ class DyslexiaAssistanceEngine:
             return b'', ''
         
         try:
-            # Use BytesIO to capture audio to memory
-            audio_buffer = io.BytesIO()
+            # Create unique filename
+            text_hash = hashlib.md5(text.encode()).hexdigest()[:8]
+            import time
+            timestamp = str(int(time.time() * 1000000))
             
-            self.engine.save_to_file(text, 'temp_audio.wav')
-            self.engine.runAndWait()
+            # Use system temp directory
+            temp_dir = tempfile.gettempdir()
+            temp_filepath = os.path.join(temp_dir, f'dyslexia_audio_{text_hash}_{timestamp}.wav')
+            
+            print(f"🎵 Generating audio for '{text}'...")
+            
+            # Call subprocess worker
+            result = subprocess.run(
+                [sys.executable, self.worker_script, text, temp_filepath],
+                capture_output=True,
+                text=True,
+                timeout=15  # 15 second timeout per request
+            )
+            
+            if result.returncode != 0:
+                print(f"❌ TTS worker failed: {result.stderr}")
+                return b'', ''
             
             # Read the generated WAV file
-            with open('temp_audio.wav', 'rb') as f:
+            if not os.path.exists(temp_filepath):
+                print(f"❌ Audio file not created")
+                return b'', ''
+            
+            with open(temp_filepath, 'rb') as f:
                 audio_bytes = f.read()
+            
+            # Clean up the temporary file
+            try:
+                os.remove(temp_filepath)
+            except Exception as cleanup_err:
+                print(f"⚠️ Could not clean temp file: {cleanup_err}")
             
             # Convert to base64 for transmission
             audio_base64 = base64.b64encode(audio_bytes).decode('utf-8')
@@ -64,6 +99,9 @@ class DyslexiaAssistanceEngine:
             print(f"✅ Generated audio for '{text}' ({len(audio_bytes)} bytes)")
             return audio_bytes, audio_base64
             
+        except subprocess.TimeoutExpired:
+            print(f"❌ TTS generation timed out for '{text}'")
+            return b'', ''
         except Exception as e:
             print(f"❌ Error generating audio: {e}")
             return b'', ''

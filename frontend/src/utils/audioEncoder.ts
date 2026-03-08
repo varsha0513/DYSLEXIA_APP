@@ -98,7 +98,7 @@ export class WavEncoder {
  */
 export class AudioCapture {
   private audioContext: AudioContext | null = null;
-  private mediaStreamAudioSource: MediaStreamAudioSource | null = null;
+  private mediaStreamAudioSource: MediaStreamAudioSourceNode | null = null;
   private scriptProcessor: ScriptProcessorNode | null = null;
   private audioChunks: Float32Array[] = [];
   private isRecording = false;

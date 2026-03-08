@@ -18,6 +18,8 @@ from text_comparison import compare_text, get_performance_feedback
 from reading_speed import ReadingSpeedAnalyzer
 from dyslexia_risk_scoring import DyslexiaRiskScorer
 from text_to_speech import DyslexiaAssistanceEngine
+from pronunciation_trainer import PronunciationTrainer, PronunciationComparator
+from speed_trainer import SpeedTrainer, prepare_pace_reading, calculate_speed_intervals
 
 # Initialize FastAPI
 app = FastAPI(
@@ -38,17 +40,31 @@ app.add_middleware(
 # Load Vosk model
 model_path = "../model/vosk-model-small-en-us-0.15"
 if not os.path.exists(model_path):
-    raise RuntimeError(f"❌ Vosk model not found at {model_path}. Please download it first.")
+    raise RuntimeError(f"[ERROR] Vosk model not found at {model_path}. Please download it first.")
 
 model = Model(model_path)
 
 # Initialize TTS Engine for Assistance Module
 try:
     tts_engine = DyslexiaAssistanceEngine(rate=100, volume=0.9)
-    print("✅ Assistance Module (TTS) ready")
+    print("[OK] Assistance Module (TTS) ready")
 except Exception as e:
-    print(f"⚠️ TTS Engine initialization warning: {e}")
+    print(f"[WARN] TTS Engine initialization warning: {e}")
     tts_engine = None
+
+# Initialize Pronunciation Trainer
+try:
+    pronunciation_trainer = PronunciationTrainer(
+        vosk_model=model,
+        tts_engine=tts_engine
+    )
+    print("[OK] Pronunciation Trainer ready")
+except Exception as e:
+    print(f"[WARN] Pronunciation Trainer initialization warning: {e}")
+    pronunciation_trainer = None
+
+# Initialize Speed Trainer Sessions storage
+speed_trainer_sessions = {}  # Dictionary to store active speed trainer sessions
 
 
 # ================== Pydantic Models ==================
@@ -65,6 +81,39 @@ class AssessmentRequest(BaseModel):
                 "paragraph": "The quick brown fox jumps over the lazy dog."
             }
         }
+
+
+class PronunciationCheckResult(BaseModel):
+    """Result of pronunciation check"""
+    word: str
+    recognized: str
+    correct: str
+    is_correct: bool
+    similarity_ratio: float
+    feedback: str
+    pronunciation_audio: Optional[str] = None
+    raw_recognized: str = ""
+    exact_match: bool = False
+
+
+class PronunciationFeedback(BaseModel):
+    """Feedback for pronunciation attempt"""
+    word: str
+    attempt_number: int
+    is_correct: bool
+    similarity_ratio: float
+    feedback: str
+    should_retry: bool
+    pronunciation_audio: Optional[str] = None
+
+
+class TrainingSessionResult(BaseModel):
+    """Result of a complete training session"""
+    word: str
+    success: bool
+    total_attempts: int
+    final_status: str
+    summary: dict
 
 
 class SpeedMetrics(BaseModel):
@@ -128,6 +177,72 @@ class AssessmentResponse(BaseModel):
     status: str = "success"
 
 
+class SpeedTrainerRound(BaseModel):
+    """Configuration for a single training round"""
+    round_number: int
+    wpm: int
+    interval_ms: int
+    duration_seconds: float
+    status: str = "pending"
+
+
+class SpeedTrainerSession(BaseModel):
+    """Speed trainer session data"""
+    text: str
+    words: List[str]
+    total_words: int
+    current_round: int
+    current_word_index: int
+    current_word: Optional[str]
+    is_paused: bool
+    is_completed: bool
+    rounds: List[SpeedTrainerRound]
+    session_id: str = ""
+
+
+class PaceReadingRequest(BaseModel):
+    """Request to prepare pace reading training"""
+    text: str
+    speeds: Optional[List[int]] = None  # Custom WPM values
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "text": "The quick brown fox jumps over the lazy dog",
+                "speeds": [60, 75, 90]
+            }
+        }
+
+
+class PaceReadingResponse(BaseModel):
+    """Response from pace reading preparation"""
+    text: str
+    words: List[str]
+    total_words: int
+    speeds: List[int]
+    intervals: List[int]
+    session_id: str = ""
+
+
+class SpeedTrainerAction(BaseModel):
+    """Action on a speed trainer session"""
+    action: str  # start, pause, resume, reset, advance_word
+    session_id: Optional[str] = None
+
+
+class SpeedTrainerStats(BaseModel):
+    """Statistics from a speed training session"""
+    total_words: int
+    total_rounds: int
+    completed_rounds: int
+    current_round: int
+    total_duration_seconds: float
+    average_wpm: float
+    min_wpm: int
+    max_wpm: int
+    is_completed: bool
+
+
 # ================== Helper Functions ==================
 
 def process_audio_file(audio_bytes: bytes, filename: str = 'audio.wav') -> str:
@@ -143,12 +258,12 @@ def process_audio_file(audio_bytes: bytes, filename: str = 'audio.wav') -> str:
         Recognized text from the audio
     """
     try:
-        print(f"🎵 Processing audio file: {filename}")
-        print(f"📊 Total audio bytes received: {len(audio_bytes)}")
+        print(f"[AUDIO] Processing audio file: {filename}")
+        print(f"[AUDIO] Total audio bytes received: {len(audio_bytes)}")
         
         # Validate audio has content
         if len(audio_bytes) < 100:
-            print(f"❌ Audio file too small: {len(audio_bytes)} bytes")
+            print(f"[ERROR] Audio file too small: {len(audio_bytes)} bytes")
             return ""
         
         # Read WAV file
@@ -159,7 +274,7 @@ def process_audio_file(audio_bytes: bytes, filename: str = 'audio.wav') -> str:
             sample_rate = wav_file.getframerate()
             num_frames = wav_file.getnframes()
             
-            print(f"📊 WAV Properties:")
+            print(f"[AUDIO] WAV Properties:")
             print(f"   - Channels: {channels}")
             print(f"   - Sample Width: {sample_width} bytes (16-bit = 2)")
             print(f"   - Sample Rate: {sample_rate} Hz")
@@ -168,15 +283,15 @@ def process_audio_file(audio_bytes: bytes, filename: str = 'audio.wav') -> str:
             
             # Validate audio format
             if channels != 1:
-                print(f"⚠️ Converting {channels} channels to mono...")
+                print(f"[WARN] Converting {channels} channels to mono...")
             if sample_width != 2:
-                print(f"⚠️ Expected 16-bit audio, got {sample_width*8}-bit")
+                print(f"[WARN] Expected 16-bit audio, got {sample_width*8}-bit")
             
             # Check if audio has actual sound (rough estimate)
             audio_data = wav_file.readframes(num_frames)
             if len(audio_data) < 100:
-                print(f"❌ Audio data is too small: {len(audio_data)} bytes")
-                print("   → Audio is likely silent or corrupted")
+                print(f"[ERROR] Audio data is too small: {len(audio_data)} bytes")
+                print("   [ERROR] Audio is likely silent or corrupted")
                 return ""
             
             # Reset stream for recognition
@@ -184,10 +299,10 @@ def process_audio_file(audio_bytes: bytes, filename: str = 'audio.wav') -> str:
             
             # Create recognizer - Vosk model expects 16kHz mono
             if sample_rate != 16000:
-                print(f"⚠️ Vosk needs 16000 Hz, audio is {sample_rate} Hz")
+                print(f"[WARN] Vosk needs 16000 Hz, audio is {sample_rate} Hz")
                 # Vosk can handle other rates, but 16000 is optimal
             
-            print(f"🎤 Creating Vosk recognizer (target: 16000 Hz)...")
+            print(f"[VOSK] Creating Vosk recognizer (target: 16000 Hz)...")
             recognizer = KaldiRecognizer(model, sample_rate)
             recognizer.SetWords(None)  # Use default word list
             
@@ -196,7 +311,7 @@ def process_audio_file(audio_bytes: bytes, filename: str = 'audio.wav') -> str:
             chunks_with_results = 0
             interim_results = []
             
-            print("📥 Feeding audio to Vosk recognizer...")
+            print("[VOSK] Feeding audio to Vosk recognizer...")
             with wave.open(audio_stream, 'rb') as wav_file:
                 while True:
                     # Use larger chunks for better recognition (4000 bytes = 1000 samples @ 16-bit)
@@ -211,23 +326,23 @@ def process_audio_file(audio_bytes: bytes, filename: str = 'audio.wav') -> str:
                             if result.get("text"):
                                 interim_results.append(result.get("text"))
                                 chunks_with_results += 1
-                                print(f"✅ Interim result #{chunks_with_results}: {result.get('text')}")
+                                print(f"[OK] Interim result #{chunks_with_results}: {result.get('text')}")
                     except Exception as e:
-                        print(f"⚠️ Error processing chunk: {e}")
+                        print(f"[WARN] Error processing chunk: {e}")
                     
                     frames_processed += 1
                     if frames_processed % 5 == 0:
-                        print(f"📊 Processed {frames_processed} chunks...")
+                        print(f"[AUDIO] Processed {frames_processed} chunks...")
             
             # Get final result
             try:
                 final_result = json.loads(recognizer.FinalResult())
                 final_text = final_result.get("text", "")
             except Exception as e:
-                print(f"⚠️ Error getting final result: {e}")
+                print(f"[WARN] Error getting final result: {e}")
                 final_text = ""
             
-            print(f"\n🎤 VOSK RECOGNITION RESULTS:")
+            print(f"\n[VOSK] VOSK RECOGNITION RESULTS:")
             print(f"   - Total chunks processed: {frames_processed}")
             print(f"   - Chunks with results: {chunks_with_results}")
             print(f"   - Interim results collected: {len(interim_results)}")
@@ -241,7 +356,7 @@ def process_audio_file(audio_bytes: bytes, filename: str = 'audio.wav') -> str:
                 combined_text = ' '.join(interim_results)
             
             if not combined_text:
-                print("\n❌ NO SPEECH RECOGNIZED")
+                print("\n[ERROR] NO SPEECH RECOGNIZED")
                 print("   Possible causes:")
                 print("   1. ⚠️ Audio is truly silent (check microphone volume)")
                 print("   2. ⚠️ Audio format is corrupted (resampling failed?)")
@@ -666,6 +781,366 @@ async def assess_with_text(request: AssessmentRequest):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Assessment failed: {str(e)}")
+
+
+# ================== Pronunciation Training Endpoints ==================
+
+@app.post("/pronunciation/word-audio")
+async def get_word_pronunciation(word: str = Form(...)):
+    """
+    Get pronunciation audio for a word (for 'Hear it' button)
+    
+    Args:
+        word: Word to pronounce
+        
+    Returns:
+        WAV audio file or base64 encoded audio
+    """
+    try:
+        if not word or len(word.strip()) == 0:
+            raise HTTPException(status_code=400, detail="Word cannot be empty")
+        
+        if not pronunciation_trainer or not tts_engine:
+            raise HTTPException(status_code=503, detail="Pronunciation assistance not available")
+        
+        print(f"🎵 Generating pronunciation for: '{word}'")
+        audio_bytes, audio_base64 = pronunciation_trainer.speak_word(word)
+        
+        if not audio_bytes:
+            raise HTTPException(status_code=500, detail="Failed to generate pronunciation")
+        
+        # Return as streaming response for better browser support
+        return StreamingResponse(
+            io.BytesIO(audio_bytes),
+            media_type="audio/wav",
+            headers={"Content-Disposition": f"attachment; filename={word}_pronunciation.wav"}
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Pronunciation Error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate pronunciation: {str(e)}")
+
+
+@app.post("/pronunciation/check", response_model=PronunciationCheckResult)
+async def check_pronunciation(
+    word: str = Form(...),
+    audio_file: UploadFile = File(..., description="WAV audio of user attempting the word")
+):
+    """
+    Check user's pronunciation of a word and provide feedback
+    
+    Process:
+    1. Extract speech from audio using Vosk
+    2. Compare with target word
+    3. Provide feedback and similarity score
+    
+    Args:
+        word: Target word to check pronunciation for
+        audio_file: WAV audio of user's attempt
+        
+    Returns:
+        Pronunciation check result with feedback
+    """
+    try:
+        if not word or len(word.strip()) == 0:
+            raise HTTPException(status_code=400, detail="Word cannot be empty")
+        
+        if not pronunciation_trainer:
+            raise HTTPException(status_code=503, detail="Pronunciation training not available")
+        
+        print(f"\n{'='*60}")
+        print(f"🎯 PRONUNCIATION CHECK: '{word}'")
+        print(f"{'='*60}")
+        
+        # Read audio file
+        audio_bytes = await audio_file.read()
+        if len(audio_bytes) == 0:
+            raise HTTPException(status_code=400, detail="Audio file is empty")
+        
+        print(f"🎵 Audio file size: {len(audio_bytes)} bytes")
+        
+        # Run pronunciation training
+        result = pronunciation_trainer.pronunciation_training(word, audio_bytes)
+        
+        # Prepare response
+        return PronunciationCheckResult(
+            word=word,
+            recognized=result["recognized"],
+            correct=result["correct"],
+            is_correct=result["is_correct"],
+            similarity_ratio=result["similarity_ratio"],
+            feedback=result["feedback"],
+            pronunciation_audio=result["pronunciation_audio"],
+            raw_recognized=result["attempt_details"]["raw_recognized"],
+            exact_match=result["attempt_details"]["exact_match"]
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Pronunciation Check Error: {e}")
+        raise HTTPException(status_code=500, detail=f"Pronunciation check failed: {str(e)}")
+
+
+@app.post("/pronunciation/word-comparison")
+async def compare_words(
+    spoken_word: str = Form(...),
+    target_word: str = Form(...)
+):
+    """
+    Compare two words for pronunciation similarity
+    Useful for detailed analysis without audio processing
+    
+    Args:
+        spoken_word: Word as spoken by user
+        target_word: Correct target word
+        
+    Returns:
+        Detailed comparison metrics
+    """
+    try:
+        if not spoken_word or not target_word:
+            raise HTTPException(status_code=400, detail="Both words are required")
+        
+        comparison = PronunciationComparator.compare_word(spoken_word, target_word)
+        
+        return {
+            "spoken": spoken_word,
+            "target": target_word,
+            "is_exact_match": comparison["is_exact"],
+            "similarity_ratio": comparison["similarity"],
+            "confidence": comparison["confidence"],
+            "details": comparison["details"]
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Comparison Error: {e}")
+        raise HTTPException(status_code=500, detail=f"Comparison failed: {str(e)}")
+
+
+@app.post("/pronunciation/batch-check")
+async def batch_check_pronunciations(
+    words: str = Form(..., description="JSON array of words to check"),
+    audio_files: list = []
+):
+    """
+    Check pronunciation for multiple words (batch operation)
+    
+    Args:
+        words: JSON array of target words
+        audio_files: List of audio files (one per word)
+        
+    Returns:
+        List of pronunciation check results
+    """
+    try:
+        if not pronunciation_trainer:
+            raise HTTPException(status_code=503, detail="Pronunciation training not available")
+        
+        # Parse words JSON
+        try:
+            word_list = json.loads(words)
+            if not isinstance(word_list, list):
+                raise ValueError("Words must be a JSON array")
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=400, detail="Invalid JSON for words")
+        
+        print(f"📚 Batch pronunciation check for {len(word_list)} words")
+        
+        results = []
+        for word in word_list:
+            if isinstance(word, str) and word.strip():
+                # For batch, we'll just provide pronunciation and similarity without audio
+                # In production, you'd correlate audio_files with words
+                comparison = PronunciationComparator.compare_word("", word)
+                
+                results.append({
+                    "word": word,
+                    "status": "ready",
+                    "feedback": f"Ready to practice pronunciation of '{word}'"
+                })
+        
+        return {
+            "total_words": len(word_list),
+            "words": results
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Batch Check Error: {e}")
+        raise HTTPException(status_code=500, detail=f"Batch check failed: {str(e)}")
+
+
+# ================== Speed Trainer Endpoints ==================
+
+@app.post("/speed-trainer/prepare")
+async def prepare_pace_reading_session(request: PaceReadingRequest):
+    """
+    Prepare text for guided pace reading training.
+    
+    Args:
+        request: Text and optional custom speed levels
+        
+    Returns:
+        Session data with words, timings, and initial configuration
+    """
+    try:
+        if not request.text or not request.text.strip():
+            raise HTTPException(status_code=400, detail="Text cannot be empty")
+        
+        # Create trainer instance
+        trainer = SpeedTrainer()
+        
+        # Use custom speeds if provided, otherwise use defaults
+        speeds = request.speeds or SpeedTrainer.DEFAULT_SPEEDS
+        
+        # Create session
+        import uuid
+        session_id = str(uuid.uuid4())[:8]
+        
+        session = trainer.create_session(request.text, speeds, session_id)
+        
+        # Store session globally
+        speed_trainer_sessions[session_id] = trainer
+        
+        # Return session data
+        session_data = trainer.get_session_data()
+        session_data["session_id"] = session_id
+        
+        return PaceReadingResponse(
+            text=session.text,
+            words=session.words,
+            total_words=session.total_words,
+            speeds=speeds,
+            intervals=[trainer.calculate_interval(wpm) for wpm in speeds],
+            session_id=session_id
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Speed Trainer Prepare Error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to prepare pace reading: {str(e)}")
+
+
+@app.get("/speed-trainer/session/{session_id}")
+async def get_session_data(session_id: str):
+    """
+    Get current session data (words, current position, round info)
+    
+    Args:
+        session_id: ID of the training session
+        
+    Returns:
+        Current session state and configuration
+    """
+    try:
+        if session_id not in speed_trainer_sessions:
+            raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
+        
+        trainer = speed_trainer_sessions[session_id]
+        session_data = trainer.get_session_data()
+        
+        return session_data
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Speed Trainer Session Error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get session data: {str(e)}")
+
+
+@app.post("/speed-trainer/action/{session_id}")
+async def perform_session_action(session_id: str, action_request: SpeedTrainerAction):
+    """
+    Perform an action on the training session (start, pause, resume, reset, advance).
+    
+    Args:
+        session_id: ID of the training session
+        action_request: Action to perform and optional session_id
+        
+    Returns:
+        Updated session state after action
+    """
+    try:
+        if session_id not in speed_trainer_sessions:
+            raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
+        
+        trainer = speed_trainer_sessions[session_id]
+        action = action_request.action.lower()
+        
+        if action == "start":
+            # Mark first round as in progress
+            if trainer.session and trainer.session.rounds:
+                trainer.session.rounds[0].status = "in_progress"
+            result = "Training started"
+        
+        elif action == "pause":
+            trainer.pause()
+            result = "Training paused"
+        
+        elif action == "resume":
+            trainer.resume()
+            result = "Training resumed"
+        
+        elif action == "reset":
+            trainer.reset()
+            result = "Training reset to beginning"
+        
+        elif action == "advance_word":
+            success = trainer.advance_to_next_word()
+            result = "Advanced to next word" if success else "Training complete"
+        
+        else:
+            raise HTTPException(status_code=400, detail=f"Unknown action: {action}")
+        
+        # Return updated session data
+        session_data = trainer.get_session_data()
+        
+        return {
+            "action": action,
+            "result": result,
+            "session_data": session_data,
+            "success": True
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Speed Trainer Action Error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to perform action: {str(e)}")
+
+
+@app.get("/speed-trainer/stats/{session_id}")
+async def get_session_stats(session_id: str):
+    """
+    Get statistics and progress of a training session.
+    
+    Args:
+        session_id: ID of the training session
+        
+    Returns:
+        Session statistics (words, rounds, progress, timing)
+    """
+    try:
+        if session_id not in speed_trainer_sessions:
+            raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
+        
+        trainer = speed_trainer_sessions[session_id]
+        stats = trainer.get_session_stats()
+        
+        return stats
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Speed Trainer Stats Error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get statistics: {str(e)}")
 
 
 # ================== Error Handlers ==================

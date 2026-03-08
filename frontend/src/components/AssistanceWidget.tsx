@@ -22,6 +22,7 @@ export const AssistanceWidget: React.FC<AssistanceWidgetProps> = ({ assistance }
   const [loadingAudio, setLoadingAudio] = useState<AudioState>({});
   const [audioCache, setAudioCache] = useState<AudioCache>({});
   const audioRefs = useRef<{ [key: string]: HTMLAudioElement }>({});
+  const abortControllersRef = useRef<{ [key: string]: AbortController }>({});
 
   if (!assistance.has_errors || !assistance.assistance_enabled) {
     return null;
@@ -33,6 +34,14 @@ export const AssistanceWidget: React.FC<AssistanceWidgetProps> = ({ assistance }
       // Cleanup: revoke all object URLs on unmount
       Object.values(audioCache).forEach(audio => {
         URL.revokeObjectURL(audio.url);
+      });
+      // Cleanup: abort all pending requests
+      Object.values(abortControllersRef.current).forEach(controller => {
+        try {
+          controller.abort();
+        } catch (e) {
+          // Ignore abort errors
+        }
       });
     };
   }, [audioCache]);
@@ -70,6 +79,11 @@ export const AssistanceWidget: React.FC<AssistanceWidgetProps> = ({ assistance }
       // Stop any other audio that's currently playing
       stopAllAudio();
 
+      // Cancel any previous pending request for this word
+      if (abortControllersRef.current[key]) {
+        abortControllersRef.current[key].abort();
+      }
+
       // Check if audio is already cached
       if (audioCache[key]) {
         // Audio already generated, just play it
@@ -90,13 +104,18 @@ export const AssistanceWidget: React.FC<AssistanceWidgetProps> = ({ assistance }
       // Need to fetch audio from backend
       setLoadingAudio(prev => ({ ...prev, [key]: true }));
       
+      // Create a new abort controller for this request
+      const controller = new AbortController();
+      abortControllersRef.current[key] = controller;
+      
       const formData = new FormData();
       formData.append('word', correctWord);
       
       console.log(`🔊 Fetching audio for: ${correctWord}`);
       const response = await fetch('http://localhost:8000/tts/word', {
         method: 'POST',
-        body: formData
+        body: formData,
+        signal: controller.signal
       });
 
       if (!response.ok) {
@@ -130,10 +149,17 @@ export const AssistanceWidget: React.FC<AssistanceWidgetProps> = ({ assistance }
 
       setLoadingAudio(prev => ({ ...prev, [key]: false }));
       playAudio(audioRefs.current[key], audioUrl, key);
+      
+      // Clean up abort controller reference after successful completion
+      delete abortControllersRef.current[key];
     } catch (error) {
-      console.error('❌ Error playing audio:', error);
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.log(`⚠️ Audio fetch cancelled for: ${correctWord}`);
+      } else {
+        console.error('❌ Error playing audio:', error);
+        alert('Error generating audio. Check console for details.');
+      }
       setLoadingAudio(prev => ({ ...prev, [key]: false }));
-      alert('Error generating audio. Check console for details.');
     }
   };
 

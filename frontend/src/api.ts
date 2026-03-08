@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { AssessmentResponse } from './types';
 
-const API_BASE_URL = 'http://localhost:8000';
+export const API_BASE_URL = 'http://localhost:8000';
 
 export const assessReading = async (
   age: number,
