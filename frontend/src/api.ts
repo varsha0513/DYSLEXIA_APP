@@ -113,3 +113,83 @@ export const getHealth = async () => {
     throw new Error('Backend server is not responding at http://localhost:8000');
   }
 };
+
+export const submitSpeedTrainerResults = async (
+  sessionId: string,
+  elapsedTimeSeconds: number
+): Promise<any> => {
+  try {
+    console.log(`📤 Submitting speed trainer results for session: ${sessionId}`);
+    console.log(`   Elapsed time: ${elapsedTimeSeconds} seconds`);
+
+    const response = await axios.post(
+      `${API_BASE_URL}/speed-trainer/submit-results`,
+      {
+        session_id: sessionId,
+        elapsed_time_seconds: elapsedTimeSeconds,
+      },
+      {
+        timeout: 30000,
+      }
+    );
+
+    console.log('✅ Speed trainer results submitted successfully');
+    return response.data;
+  } catch (error: any) {
+    console.error('❌ Error submitting speed trainer results:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+    });
+
+    let errorMessage = 'Failed to submit speed trainer results';
+
+    if (error.response?.data?.detail) {
+      errorMessage = error.response.data.detail;
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+
+    throw new Error(errorMessage);
+  }
+};
+
+export const submitChunkReadingResults = async (
+  sessionId: string,
+  elapsedTimeSeconds: number
+): Promise<any> => {
+  try {
+    console.log(`📤 Submitting chunk reading results for session: ${sessionId}`);
+    console.log(`   Elapsed time: ${elapsedTimeSeconds} seconds`);
+
+    const response = await axios.post(
+      `${API_BASE_URL}/chunk-reading/submit-results`,
+      {
+        session_id: sessionId,
+        elapsed_time_seconds: elapsedTimeSeconds,
+      },
+      {
+        timeout: 30000,
+      }
+    );
+
+    console.log('✅ Chunk reading results submitted successfully');
+    return response.data;
+  } catch (error: any) {
+    console.error('❌ Error submitting chunk reading results:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+    });
+
+    let errorMessage = 'Failed to submit chunk reading results';
+
+    if (error.response?.data?.detail) {
+      errorMessage = error.response.data.detail;
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+
+    throw new Error(errorMessage);
+  }
+};

@@ -3,6 +3,7 @@ import { AssessmentResponse } from '../types';
 import { AssistanceWidget } from './AssistanceWidget';
 import { PronunciationTrainingWidget } from './PronunciationTrainingWidget';
 import SpeedTrainerWidget from './SpeedTrainerWidget';
+import ChunkReadingWidget from './ChunkReadingWidget';
 import './ResultsDisplay.css';
 
 interface ResultsDisplayProps {
@@ -15,6 +16,7 @@ export const ResultsDisplay: React.FC<ResultsDisplayProps> = ({
   onRestart,
 }) => {
   const [showSpeedTrainer, setShowSpeedTrainer] = useState(false);
+  const [showChunkReading, setShowChunkReading] = useState(false);
   const {
     accuracy_metrics,
     speed_metrics,
@@ -194,6 +196,12 @@ export const ResultsDisplay: React.FC<ResultsDisplayProps> = ({
             >
               🚀 Improve Reading Speed
             </button>
+            <button
+              className="btn btn-training-option"
+              onClick={() => setShowChunkReading(true)}
+            >
+              📖 Phrase Training
+            </button>
           </div>
         </div>
 
@@ -203,6 +211,15 @@ export const ResultsDisplay: React.FC<ResultsDisplayProps> = ({
             paragraph={results.reference_text}
             isShowing={showSpeedTrainer}
             onClose={() => setShowSpeedTrainer(false)}
+          />
+        )}
+
+        {/* Chunk Reading Widget Modal */}
+        {showChunkReading && (
+          <ChunkReadingWidget
+            paragraph={results.reference_text}
+            isShowing={showChunkReading}
+            onClose={() => setShowChunkReading(false)}
           />
         )}
 

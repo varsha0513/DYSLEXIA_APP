@@ -20,6 +20,7 @@ from dyslexia_risk_scoring import DyslexiaRiskScorer
 from text_to_speech import DyslexiaAssistanceEngine
 from pronunciation_trainer import PronunciationTrainer, PronunciationComparator
 from speed_trainer import SpeedTrainer, prepare_pace_reading, calculate_speed_intervals
+from phrase_trainer import PhraseTrainer, prepare_phrase_reading
 
 # Initialize FastAPI
 app = FastAPI(
@@ -65,6 +66,9 @@ except Exception as e:
 
 # Initialize Speed Trainer Sessions storage
 speed_trainer_sessions = {}  # Dictionary to store active speed trainer sessions
+
+# Initialize Phrase Trainer Sessions storage
+phrase_trainer_sessions = {}  # Dictionary to store active phrase trainer sessions
 
 
 # ================== Pydantic Models ==================
@@ -241,6 +245,95 @@ class SpeedTrainerStats(BaseModel):
     min_wpm: int
     max_wpm: int
     is_completed: bool
+
+
+class SpeedTrainerResults(BaseModel):
+    """Results submission from speed trainer session"""
+    session_id: str
+    elapsed_time_seconds: float
+
+
+class SpeedTrainerCompletionResult(BaseModel):
+    """Completion result with calculated WPM"""
+    session_id: str
+    total_words: int
+    elapsed_time_seconds: float
+    calculated_wpm: float
+    status: str = "completed"
+    message: str = ""
+
+
+# ================== Chunk Reading (Phrase Training) Models ==================
+
+class ChunkReadingRequest(BaseModel):
+    """Request to prepare chunk reading training"""
+    text: str
+    min_phrase_length: Optional[int] = 2
+    max_phrase_length: Optional[int] = 4
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "text": "The quick brown fox jumps over the lazy dog",
+                "min_phrase_length": 2,
+                "max_phrase_length": 4
+            }
+        }
+
+
+class ChunkReadingResponse(BaseModel):
+    """Response from chunk reading preparation"""
+    text: str
+    phrases: List[str]
+    total_phrases: int
+    min_phrase_length: int
+    max_phrase_length: int
+    session_id: str = ""
+
+
+class ChunkReadingSession(BaseModel):
+    """Chunk reading session data"""
+    text: str
+    phrases: List[str]
+    total_phrases: int
+    current_phrase_index: int
+    current_phrase: Optional[str]
+    is_paused: bool
+    is_completed: bool
+    session_id: str = ""
+
+
+class ChunkReadingAction(BaseModel):
+    """Action on a chunk reading session"""
+    action: str  # start, pause, resume, reset, advance_phrase
+    session_id: Optional[str] = None
+
+
+class ChunkReadingStats(BaseModel):
+    """Statistics from a chunk reading session"""
+    total_phrases: int
+    current_phrase_index: int
+    phrases_completed: int
+    progress_percent: float
+    is_completed: bool
+
+
+class ChunkReadingResults(BaseModel):
+    """Results submission from chunk reading session"""
+    session_id: str
+    elapsed_time_seconds: float
+
+
+class ChunkReadingCompletionResult(BaseModel):
+    """Completion result with reading metrics"""
+    session_id: str
+    total_phrases: int
+    total_words: int
+    elapsed_time_seconds: float
+    calculated_wpm: float
+    phrases_per_second: float
+    status: str = "completed"
+    message: str = ""
 
 
 # ================== Helper Functions ==================
@@ -1141,6 +1234,309 @@ async def get_session_stats(session_id: str):
     except Exception as e:
         print(f"❌ Speed Trainer Stats Error: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to get statistics: {str(e)}")
+
+
+@app.post("/speed-trainer/submit-results", response_model=SpeedTrainerCompletionResult)
+async def submit_speed_trainer_results(request: SpeedTrainerResults):
+    """
+    Submit reading completion results and calculate final WPM.
+    
+    Args:
+        request: Session ID and elapsed time in seconds
+        
+    Returns:
+        Completion result with calculated WPM
+    """
+    try:
+        session_id = request.session_id
+        elapsed_time = request.elapsed_time_seconds
+        
+        if session_id not in speed_trainer_sessions:
+            raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
+        
+        trainer = speed_trainer_sessions[session_id]
+        session = trainer.session
+        
+        if not session:
+            raise HTTPException(status_code=400, detail="Session data is invalid")
+        
+        # Calculate WPM based on actual elapsed time
+        if elapsed_time > 0:
+            calculated_wpm = (session.total_words / elapsed_time) * 60
+        else:
+            calculated_wpm = 0
+        
+        print(f"\n✅ SPEED TRAINER SESSION COMPLETED")
+        print(f"   Session ID: {session_id}")
+        print(f"   Total Words: {session.total_words}")
+        print(f"   Elapsed Time: {elapsed_time:.2f} seconds")
+        print(f"   Calculated WPM: {calculated_wpm:.2f}")
+        print(f"   Status: Completed")
+        
+        return SpeedTrainerCompletionResult(
+            session_id=session_id,
+            total_words=session.total_words,
+            elapsed_time_seconds=elapsed_time,
+            calculated_wpm=round(calculated_wpm, 2),
+            status="completed",
+            message=f"Great job! You read {session.total_words} words in {elapsed_time:.1f} seconds at {calculated_wpm:.0f} WPM"
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Speed Trainer Results Error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to submit results: {str(e)}")
+
+
+# ================== Chunk Reading (Phrase Training) Endpoints ==================
+
+@app.post("/chunk-reading/prepare", response_model=ChunkReadingResponse)
+async def prepare_chunk_reading_session(request: ChunkReadingRequest):
+    """
+    Prepare text for chunk reading (phrase training).
+    
+    Args:
+        request: Text and optional phrase length configuration
+        
+    Returns:
+        Session data with phrases and initial configuration
+    """
+    try:
+        if not request.text or not request.text.strip():
+            raise HTTPException(status_code=400, detail="Text cannot be empty")
+        
+        # Create trainer instance
+        min_len = request.min_phrase_length or 2
+        max_len = request.max_phrase_length or 4
+        trainer = PhraseTrainer(min_length=min_len, max_length=max_len)
+        
+        # Create session
+        import uuid
+        session_id = str(uuid.uuid4())[:8]
+        
+        session = trainer.create_session(request.text, session_id)
+        
+        # Store session globally
+        phrase_trainer_sessions[session_id] = trainer
+        
+        print(f"✅ Chunk Reading Session Created")
+        print(f"   Session ID: {session_id}")
+        print(f"   Total Phrases: {session.total_phrases}")
+        print(f"   Phrase Range: {min_len}-{max_len} words")
+        
+        return ChunkReadingResponse(
+            text=session.text,
+            phrases=session.phrases,
+            total_phrases=session.total_phrases,
+            min_phrase_length=min_len,
+            max_phrase_length=max_len,
+            session_id=session_id
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Chunk Reading Prepare Error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to prepare chunk reading: {str(e)}")
+
+
+@app.get("/chunk-reading/session/{session_id}", response_model=ChunkReadingSession)
+async def get_chunk_reading_session(session_id: str):
+    """
+    Get current chunk reading session data.
+    
+    Args:
+        session_id: ID of the training session
+        
+    Returns:
+        Current session state and configuration
+    """
+    try:
+        if session_id not in phrase_trainer_sessions:
+            raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
+        
+        trainer = phrase_trainer_sessions[session_id]
+        session_data = trainer.get_session_data()
+        
+        return ChunkReadingSession(
+            text=session_data["text"],
+            phrases=session_data["phrases"],
+            total_phrases=session_data["total_phrases"],
+            current_phrase_index=session_data["current_phrase_index"],
+            current_phrase=session_data["current_phrase"],
+            is_paused=session_data["is_paused"],
+            is_completed=session_data["is_completed"],
+            session_id=session_data["session_id"]
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Chunk Reading Session Error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get session data: {str(e)}")
+
+
+@app.post("/chunk-reading/action/{session_id}")
+async def perform_chunk_reading_action(session_id: str, action_request: ChunkReadingAction):
+    """
+    Perform an action on the chunk reading session.
+    
+    Args:
+        session_id: ID of the training session
+        action_request: Action to perform (start, pause, resume, reset, advance_phrase)
+        
+    Returns:
+        Updated session state after action
+    """
+    try:
+        if session_id not in phrase_trainer_sessions:
+            raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
+        
+        trainer = phrase_trainer_sessions[session_id]
+        action = action_request.action.lower()
+        
+        if action == "start":
+            # Mark session as started
+            result = "Chunk reading started"
+        
+        elif action == "pause":
+            trainer.pause()
+            result = "Training paused"
+        
+        elif action == "resume":
+            trainer.resume()
+            result = "Training resumed"
+        
+        elif action == "reset":
+            trainer.reset()
+            result = "Training reset to beginning"
+        
+        elif action == "advance_phrase":
+            success = trainer.advance_to_next_phrase()
+            result = "Advanced to next phrase" if success else "Training complete"
+        
+        else:
+            raise HTTPException(status_code=400, detail=f"Unknown action: {action}")
+        
+        # Return updated session data
+        session_data = trainer.get_session_data()
+        
+        return {
+            "action": action,
+            "result": result,
+            "session_data": {
+                "text": session_data["text"],
+                "phrases": session_data["phrases"],
+                "total_phrases": session_data["total_phrases"],
+                "current_phrase_index": session_data["current_phrase_index"],
+                "current_phrase": session_data["current_phrase"],
+                "is_paused": session_data["is_paused"],
+                "is_completed": session_data["is_completed"],
+                "session_id": session_data["session_id"]
+            },
+            "success": True
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Chunk Reading Action Error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to perform action: {str(e)}")
+
+
+@app.get("/chunk-reading/stats/{session_id}", response_model=ChunkReadingStats)
+async def get_chunk_reading_stats(session_id: str):
+    """
+    Get statistics and progress of a chunk reading session.
+    
+    Args:
+        session_id: ID of the training session
+        
+    Returns:
+        Session statistics (phrases, progress, completion)
+    """
+    try:
+        if session_id not in phrase_trainer_sessions:
+            raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
+        
+        trainer = phrase_trainer_sessions[session_id]
+        stats = trainer.get_session_stats()
+        
+        return ChunkReadingStats(
+            total_phrases=stats["total_phrases"],
+            current_phrase_index=stats["current_phrase_index"],
+            phrases_completed=stats["phrases_completed"],
+            progress_percent=stats["progress_percent"],
+            is_completed=stats["is_completed"]
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Chunk Reading Stats Error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get statistics: {str(e)}")
+
+
+@app.post("/chunk-reading/submit-results", response_model=ChunkReadingCompletionResult)
+async def submit_chunk_reading_results(request: ChunkReadingResults):
+    """
+    Submit chunk reading completion results and calculate metrics.
+    
+    Args:
+        request: Session ID and elapsed time in seconds
+        
+    Returns:
+        Completion result with calculated WPM and phrases/second
+    """
+    try:
+        session_id = request.session_id
+        elapsed_time = request.elapsed_time_seconds
+        
+        if session_id not in phrase_trainer_sessions:
+            raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
+        
+        trainer = phrase_trainer_sessions[session_id]
+        session = trainer.session
+        
+        if not session:
+            raise HTTPException(status_code=400, detail="Session data is invalid")
+        
+        # Count total words in all phrases
+        total_words = sum(len(phrase.split()) for phrase in session.phrases)
+        
+        # Calculate metrics based on actual elapsed time
+        if elapsed_time > 0:
+            calculated_wpm = (total_words / elapsed_time) * 60
+            phrases_per_second = session.total_phrases / elapsed_time
+        else:
+            calculated_wpm = 0
+            phrases_per_second = 0
+        
+        print(f"\n✅ CHUNK READING SESSION COMPLETED")
+        print(f"   Session ID: {session_id}")
+        print(f"   Total Phrases: {session.total_phrases}")
+        print(f"   Total Words: {total_words}")
+        print(f"   Elapsed Time: {elapsed_time:.2f} seconds")
+        print(f"   Calculated WPM: {calculated_wpm:.2f}")
+        print(f"   Phrases/Second: {phrases_per_second:.2f}")
+        
+        return ChunkReadingCompletionResult(
+            session_id=session_id,
+            total_phrases=session.total_phrases,
+            total_words=total_words,
+            elapsed_time_seconds=elapsed_time,
+            calculated_wpm=round(calculated_wpm, 2),
+            phrases_per_second=round(phrases_per_second, 2),
+            status="completed",
+            message=f"Excellent! You read {session.total_phrases} phrases ({total_words} words) in {elapsed_time:.1f} seconds at {calculated_wpm:.0f} WPM"
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Chunk Reading Results Error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to submit results: {str(e)}")
 
 
 # ================== Error Handlers ==================

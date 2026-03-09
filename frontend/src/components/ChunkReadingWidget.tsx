@@ -1,88 +1,76 @@
 /*
-SpeedTrainerWidget Component for Guided Pace Reading
+ChunkReadingWidget Component for Phrase Training
 
 This component provides an interactive interface for users to practice
-reading at controlled paces (measured in Words Per Minute). Users follow
-highlighted words that advance automatically based on the selected speed.
+reading in phrase chunks (2-4 words) instead of individual words.
+Users follow highlighted phrases that advance automatically based on pace.
 
 Features:
-- Multiple training rounds with progressive speed increases
-- Word-by-word highlighting with smooth transitions
+- Phrase-based reading with visual dividers
 - Real-time progress tracking
 - Start/Pause/Resume/Reset controls
-- Automatic time tracking and WPM calculation
+- 3-second countdown before training
+- Reading speed (WPM) calculation from actual time
 - Dyslexia-friendly design with large fonts and clear spacing
 */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { API_BASE_URL, submitSpeedTrainerResults } from '../api';
-import './SpeedTrainerWidget.css';
+import { API_BASE_URL, submitChunkReadingResults } from '../api';
+import './ChunkReadingWidget.css';
 
 // Types for props
-interface SpeedTrainerWidgetProps {
+interface ChunkReadingWidgetProps {
   paragraph: string;
   isShowing: boolean;
   onClose?: () => void;
 }
 
 // Session data from backend
-interface TrainingSession {
+interface ChunkReadingSession {
   text: string;
-  words: string[];
-  total_words: number;
-  current_round: number;
-  current_word_index: number;
-  current_word: string | null;
+  phrases: string[];
+  total_phrases: number;
+  current_phrase_index: number;
+  current_phrase: string | null;
   is_paused: boolean;
   is_completed: boolean;
-  rounds: TrainingRound[];
   session_id: string;
 }
 
-interface TrainingRound {
-  round_number: number;
-  wpm: number;
-  interval_ms: number;
-  duration_seconds: number;
-  status: string;
-}
-
-interface SessionStats {
-  total_words: number;
-  total_rounds: number;
-  completed_rounds: number;
-  current_round: number;
-  total_duration_seconds: number;
-  average_wpm: number;
-  min_wpm: number;
-  max_wpm: number;
+interface ChunkReadingStats {
+  total_phrases: number;
+  current_phrase_index: number;
+  phrases_completed: number;
+  progress_percent: number;
   is_completed: boolean;
 }
 
 interface CompletionResult {
   session_id: string;
+  total_phrases: number;
   total_words: number;
   elapsed_time_seconds: number;
   calculated_wpm: number;
+  phrases_per_second: number;
   status: string;
   message: string;
 }
 
 /**
- * SpeedTrainerWidget Component
+ * ChunkReadingWidget Component
  * 
- * Provides guided pace reading training with progressive speed increases.
- * Users follow highlighted words that advance at a controlled pace.
+ * Provides guided phrase-based reading training with automatic progression.
+ * Users follow highlighted phrase chunks to improve reading speed and comprehension.
  */
-const SpeedTrainerWidget: React.FC<SpeedTrainerWidgetProps> = ({
+const ChunkReadingWidget: React.FC<ChunkReadingWidgetProps> = ({
   paragraph,
   isShowing,
   onClose,
 }) => {
   // State for training session
   const [sessionId, setSessionId] = useState<string>('');
-  const [session, setSession] = useState<TrainingSession | null>(null);
-  const [stats, setStats] = useState<SessionStats | null>(null);
+  const [session, setSession] = useState<ChunkReadingSession | null>(null);
+  const [stats, setStats] = useState<ChunkReadingStats | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string>('');
   const [isRunning, setIsRunning] = useState(false);
@@ -97,6 +85,9 @@ const SpeedTrainerWidget: React.FC<SpeedTrainerWidgetProps> = ({
   const startTimeRef = useRef<number | null>(null);
   const elapsedTimeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Configurable phrase pace (milliseconds per phrase)
+  const PHRASE_PACE_MS = 2000; // 2 seconds per phrase
+
   /**
    * Initialize the training session with the provided paragraph
    */
@@ -108,14 +99,15 @@ const SpeedTrainerWidget: React.FC<SpeedTrainerWidgetProps> = ({
       setCompletionResult(null);
 
       // Call backend to prepare the session
-      const response = await fetch(`${API_BASE_URL}/speed-trainer/prepare`, {
+      const response = await fetch(`${API_BASE_URL}/chunk-reading/prepare`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           text: paragraph,
-          speeds: [60, 75, 90], // Default speeds
+          min_phrase_length: 2,
+          max_phrase_length: 4,
         }),
       });
 
@@ -142,7 +134,7 @@ const SpeedTrainerWidget: React.FC<SpeedTrainerWidgetProps> = ({
    */
   const loadSessionData = async (sid: string) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/speed-trainer/session/${sid}`, {
+      const response = await fetch(`${API_BASE_URL}/chunk-reading/session/${sid}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -153,19 +145,19 @@ const SpeedTrainerWidget: React.FC<SpeedTrainerWidgetProps> = ({
         throw new Error(`Failed to load session: ${response.statusText}`);
       }
 
-      const data: TrainingSession = await response.json();
+      const data: ChunkReadingSession = await response.json();
       setSession(data);
 
       // Load stats
       const statsResponse = await fetch(
-        `${API_BASE_URL}/speed-trainer/stats/${sid}`,
+        `${API_BASE_URL}/chunk-reading/stats/${sid}`,
         {
           method: 'GET',
         }
       );
 
       if (statsResponse.ok) {
-        const statsData: SessionStats = await statsResponse.json();
+        const statsData: ChunkReadingStats = await statsResponse.json();
         setStats(statsData);
       }
     } catch (err) {
@@ -174,14 +166,14 @@ const SpeedTrainerWidget: React.FC<SpeedTrainerWidgetProps> = ({
   };
 
   /**
-   * Perform an action on the session (start, pause, resume, reset, advance)
+   * Perform an action on the session
    */
   const performAction = async (action: string) => {
     if (!sessionId) return;
 
     try {
       const response = await fetch(
-        `${API_BASE_URL}/speed-trainer/action/${sessionId}`,
+        `${API_BASE_URL}/chunk-reading/action/${sessionId}`,
         {
           method: 'POST',
           headers: {
@@ -199,14 +191,13 @@ const SpeedTrainerWidget: React.FC<SpeedTrainerWidgetProps> = ({
       }
 
       const data = await response.json();
-      const updatedSession: TrainingSession = data.session_data;
+      const updatedSession: ChunkReadingSession = data.session_data;
       setSession(updatedSession);
 
       // Update stats
-      if (action === 'advance_word' && !updatedSession.is_completed) {
-        // Continue if not completed
+      if (action === 'advance_phrase' && !updatedSession.is_completed) {
         const statsResponse = await fetch(
-          `${API_BASE_URL}/speed-trainer/stats/${sessionId}`,
+          `${API_BASE_URL}/chunk-reading/stats/${sessionId}`,
           { method: 'GET' }
         );
         if (statsResponse.ok) {
@@ -234,7 +225,7 @@ const SpeedTrainerWidget: React.FC<SpeedTrainerWidgetProps> = ({
       console.log(`📤 Submitting results for session ${sessionId}`);
       console.log(`   Elapsed time: ${elapsedTime} seconds`);
 
-      const result = await submitSpeedTrainerResults(sessionId, elapsedTime);
+      const result = await submitChunkReadingResults(sessionId, elapsedTime);
       setCompletionResult(result);
 
       console.log('✅ Results submitted successfully:', result);
@@ -251,7 +242,6 @@ const SpeedTrainerWidget: React.FC<SpeedTrainerWidgetProps> = ({
    * Start countdown before training begins
    */
   const startCountdown = async () => {
-    // Clear any existing countdown
     if (countdownRef.current) {
       clearTimeout(countdownRef.current);
     }
@@ -259,14 +249,12 @@ const SpeedTrainerWidget: React.FC<SpeedTrainerWidgetProps> = ({
     let count = 3;
     setCountdown(count);
 
-    // Show 3, 2, 1 with 1 second each
     const countdownInterval = setInterval(() => {
       count--;
 
       if (count === 0) {
         setCountdown('Go!');
       } else if (count < 0) {
-        // Countdown complete, hide overlay and start training
         clearInterval(countdownInterval);
         setCountdown(null);
 
@@ -312,7 +300,6 @@ const SpeedTrainerWidget: React.FC<SpeedTrainerWidgetProps> = ({
    * Resume the training
    */
   const handleResume = async () => {
-    // Reset start time to account for pause
     startTimeRef.current = Date.now() - (elapsedTime * 1000);
     await performAction('resume');
     setIsRunning(true);
@@ -340,12 +327,11 @@ const SpeedTrainerWidget: React.FC<SpeedTrainerWidgetProps> = ({
   };
 
   /**
-   * Advance to the next word
+   * Advance to the next phrase
    */
-  const advanceWord = async () => {
+  const advancePhrase = async () => {
     if (!session) return;
-
-    await performAction('advance_word');
+    await performAction('advance_phrase');
   };
 
   /**
@@ -356,14 +342,12 @@ const SpeedTrainerWidget: React.FC<SpeedTrainerWidgetProps> = ({
       return;
     }
 
-    // Update elapsed time every 100ms
     elapsedTimeIntervalRef.current = setInterval(() => {
       const now = Date.now();
-      const elapsed = (now - startTimeRef.current!) / 1000; // Convert to seconds
+      const elapsed = (now - startTimeRef.current!) / 1000;
       setElapsedTime(elapsed);
     }, 100);
 
-    // Cleanup
     return () => {
       if (elapsedTimeIntervalRef.current) {
         clearInterval(elapsedTimeIntervalRef.current);
@@ -373,14 +357,13 @@ const SpeedTrainerWidget: React.FC<SpeedTrainerWidgetProps> = ({
   }, [isRunning, startTimeRef]);
 
   /**
-   * Effect to handle automatic word advancement during training
+   * Effect to handle automatic phrase advancement during training
    */
   useEffect(() => {
     if (!isRunning || !session) {
       return;
     }
 
-    // Check if training is complete
     if (session.is_completed) {
       setIsRunning(false);
       if (elapsedTimeIntervalRef.current) {
@@ -390,18 +373,11 @@ const SpeedTrainerWidget: React.FC<SpeedTrainerWidgetProps> = ({
       return;
     }
 
-    // Get current round info
-    const currentRound = session.rounds[session.current_round];
-    if (!currentRound) {
-      return;
-    }
-
-    // Set timer to advance to next word
+    // Set timer to advance to next phrase
     timerRef.current = setTimeout(() => {
-      advanceWord();
-    }, currentRound.interval_ms);
+      advancePhrase();
+    }, PHRASE_PACE_MS);
 
-    // Cleanup
     return () => {
       if (timerRef.current) {
         clearTimeout(timerRef.current);
@@ -433,24 +409,29 @@ const SpeedTrainerWidget: React.FC<SpeedTrainerWidgetProps> = ({
 
   if (!session) {
     return (
-      <div className="speed-trainer-widget">
-        <div className="speed-trainer-container">
-          <div className="speed-trainer-header">
-            <h2>🚀 Guided Pace Reading</h2>
+      <div className="chunk-reading-widget">
+        <div className="chunk-reading-container">
+          <div className="chunk-reading-header">
+            <h2>📖 Chunk Reading (Phrase Training)</h2>
             <button className="close-btn" onClick={onClose}>
               ✕
             </button>
           </div>
 
-          <div className="speed-trainer-intro">
+          <div className="chunk-reading-intro">
             <p>
-              Improve your reading speed with guided practice. Follow the highlighted
-              words as they advance automatically. Each round gets progressively faster!
+              Improve your reading speed and comprehension by reading in meaningful phrases
+              rather than individual words. Follow the highlighted phrases as they advance automatically.
             </p>
-            <div className="speed-info">
-              <div className="speed-level">Round 1: 60 WPM</div>
-              <div className="speed-level">Round 2: 75 WPM</div>
-              <div className="speed-level">Round 3: 90 WPM</div>
+            <div className="training-info">
+              <div className="info-item">
+                <span className="info-label">Phrase Length:</span>
+                <span className="info-value">2-4 words per phrase</span>
+              </div>
+              <div className="info-item">
+                <span className="info-label">Training Pace:</span>
+                <span className="info-value">{PHRASE_PACE_MS / 1000} seconds per phrase</span>
+              </div>
             </div>
           </div>
 
@@ -462,7 +443,7 @@ const SpeedTrainerWidget: React.FC<SpeedTrainerWidgetProps> = ({
               onClick={initializeSession}
               disabled={isLoading}
             >
-              {isLoading ? '⏳ Preparing...' : '▶ Start Training'}
+              {isLoading ? '⏳ Preparing...' : '▶ Start Phrase Training'}
             </button>
           ) : (
             <div className="loading-spinner">
@@ -475,31 +456,27 @@ const SpeedTrainerWidget: React.FC<SpeedTrainerWidgetProps> = ({
     );
   }
 
-  const currentRound = session.rounds[session.current_round];
   const progressPercent =
-    (session.current_word_index / session.total_words) * 100;
+    (session.current_phrase_index / session.total_phrases) * 100;
 
   return (
-    <div className="speed-trainer-widget">
-      <div className="speed-trainer-container">
+    <div className="chunk-reading-widget">
+      <div className="chunk-reading-container">
         {/* Header */}
-        <div className="speed-trainer-header">
-          <h2>🚀 Guided Pace Reading</h2>
+        <div className="chunk-reading-header">
+          <h2>📖 Chunk Reading (Phrase Training)</h2>
           <button className="close-btn" onClick={onClose}>
             ✕
           </button>
         </div>
 
-        {/* Round and WPM Info */}
-        <div className="round-info">
-          <div className="round-badge">
-            Round {session.current_round + 1} of {session.rounds.length}
+        {/* Progress Info */}
+        <div className="progress-info">
+          <div className="phrase-count">
+            Phrase {session.current_phrase_index + 1} of {session.total_phrases}
           </div>
-          <div className="wpm-display">
-            {currentRound?.wpm} WPM
-          </div>
-          <div className="interval-display">
-            {(currentRound?.interval_ms || 1000) / 1000}s per word
+          <div className="time-display">
+            ⏱️ {elapsedTime.toFixed(1)}s
           </div>
         </div>
 
@@ -511,32 +488,30 @@ const SpeedTrainerWidget: React.FC<SpeedTrainerWidgetProps> = ({
               style={{ width: `${progressPercent}%` }}
             ></div>
           </div>
-          <div className="progress-text">
-            Word {session.current_word_index + 1} of {session.total_words}
-          </div>
         </div>
 
-        {/* Word Display Area */}
-        <div className="text-display-container">
-          <div className="text-display">
-            {session.words.map((word, idx) => (
-              <span
-                key={idx}
-                className={`word ${
-                  idx === session.current_word_index ? 'highlight' : ''
-                }`}
-              >
-                {word}
-              </span>
+        {/* Phrase Display Area */}
+        <div className="phrase-display-container">
+          <div className="phrases-grid">
+            {session.phrases.map((phrase, idx) => (
+              <div key={idx} className="phrase-wrapper">
+                <div
+                  className={`phrase ${
+                    idx === session.current_phrase_index ? 'highlight' : ''
+                  }`}
+                >
+                  {phrase}
+                </div>
+              </div>
             ))}
           </div>
         </div>
 
-        {/* Current Word Display */}
-        <div className="current-word-emphasis">
-          <div className="current-word-label">Current Word:</div>
-          <div className="current-word-large">
-            {session.current_word || ''}
+        {/* Current Phrase Emphasis */}
+        <div className="current-phrase-display">
+          <div className="current-phrase-label">Current Phrase:</div>
+          <div className="current-phrase-large">
+            {session.current_phrase || ''}
           </div>
         </div>
 
@@ -587,46 +562,50 @@ const SpeedTrainerWidget: React.FC<SpeedTrainerWidgetProps> = ({
         {session.is_completed && (
           <div className="completion-message">
             <div className="completion-icon">🎉</div>
-            <h3>Excellent Work!</h3>
-            <p>You've completed the Guided Pace Reading training!</p>
+            <h3>Fantastic Work!</h3>
+            <p>You've completed the phrase reading training!</p>
             
             {completionResult ? (
               <div className="completion-stats">
-                <p>
-                  <strong>Words Read:</strong> {completionResult.total_words}
-                </p>
-                <p>
-                  <strong>Time Elapsed:</strong> {completionResult.elapsed_time_seconds.toFixed(1)} seconds
-                </p>
-                <p style={{ fontSize: '1.3em', color: '#667eea', fontWeight: 'bold', marginTop: '15px' }}>
-                  🎯 Your Reading Speed: <span style={{ color: '#764ba2' }}>{completionResult.calculated_wpm.toFixed(0)} WPM</span>
-                </p>
-                <p style={{ marginTop: '15px', fontSize: '0.95em' }}>
-                  {completionResult.message}
-                </p>
+                <div className="stat-group">
+                  <p>
+                    <strong>Phrases Read:</strong> {completionResult.total_phrases}
+                  </p>
+                  <p>
+                    <strong>Total Words:</strong> {completionResult.total_words}
+                  </p>
+                </div>
+                
+                <div className="stat-divider"></div>
+                
+                <div className="stat-group">
+                  <p>
+                    <strong>Time Elapsed:</strong> {completionResult.elapsed_time_seconds.toFixed(1)} seconds
+                  </p>
+                  <p style={{ fontSize: '1.3em', color: '#667eea', fontWeight: 'bold', marginTop: '15px' }}>
+                    🎯 Reading Speed: <span style={{ color: '#764ba2' }}>{completionResult.calculated_wpm.toFixed(0)} WPM</span>
+                  </p>
+                  <p style={{ fontSize: '0.95em', color: '#666', marginTop: '10px' }}>
+                    ({completionResult.phrases_per_second.toFixed(2)} phrases/second)
+                  </p>
+                </div>
               </div>
             ) : (
               <div className="completion-stats">
                 <p>
-                  <strong>Words Practiced:</strong> {session.total_words}
+                  <strong>Phrases Practiced:</strong> {session.total_phrases}
                 </p>
                 {stats && (
-                  <>
-                    <p>
-                      <strong>Average Target Speed:</strong> {stats.average_wpm.toFixed(0)} WPM
-                    </p>
-                    <p>
-                      <strong>Total Duration:</strong>{' '}
-                      {stats.total_duration_seconds.toFixed(1)} seconds
-                    </p>
-                  </>
+                  <p>
+                    <strong>Average Pace:</strong> {(PHRASE_PACE_MS / 1000).toFixed(1)} seconds per phrase
+                  </p>
                 )}
               </div>
             )}
             
             {isSubmittingResults && (
               <div style={{ marginTop: '15px', fontSize: '0.9em', color: '#666' }}>
-                ⏳ Calculating your results...
+                ⏳ Calculating your reading metrics...
               </div>
             )}
             
@@ -646,4 +625,4 @@ const SpeedTrainerWidget: React.FC<SpeedTrainerWidgetProps> = ({
   );
 };
 
-export default SpeedTrainerWidget;
+export default ChunkReadingWidget;
