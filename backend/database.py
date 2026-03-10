@@ -16,7 +16,7 @@ load_dotenv()
 # Format: postgresql://username:password@host:port/database
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
-    "postgresql://dyslexia_user:dyslexia_pass@localhost:5432/dyslexia_db"
+    "postgresql://dyslexia_user:12Varsh%400513@localhost:5432/dyslexia_db"
 )
 
 # Create SQLAlchemy engine

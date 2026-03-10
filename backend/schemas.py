@@ -1,6 +1,6 @@
 """
-Pydantic models for API request/response validation
-Separate from SQLAlchemy models for data transfer
+Pydantic validation schemas for request/response data
+Data validation and serialization
 """
 
 from pydantic import BaseModel, EmailStr
@@ -11,45 +11,45 @@ from datetime import datetime
 # ================== User Schemas ==================
 
 class UserCreate(BaseModel):
-    """Create new user"""
+    """Schema for creating a new user"""
     username: str
     email: EmailStr
     age: Optional[int] = None
 
 
 class UserUpdate(BaseModel):
-    """Update user profile"""
+    """Schema for updating user data"""
     age: Optional[int] = None
     email: Optional[EmailStr] = None
 
 
 class UserResponse(BaseModel):
-    """User response model"""
+    """Schema for user response"""
     id: int
     username: str
     email: str
-    age: Optional[int]
+    age: Optional[int] = None
     created_at: datetime
 
     class Config:
-        from_attributes = True  # SQLAlchemy compatibility
+        from_attributes = True
 
 
 # ================== Assessment Schemas ==================
 
 class AssessmentCreate(BaseModel):
-    """Create assessment"""
+    """Schema for creating an assessment"""
     paragraph_text: str
     recognized_text: Optional[str] = None
 
 
 class AssessmentResponse(BaseModel):
-    """Assessment response"""
+    """Schema for assessment response"""
     id: int
     user_id: int
     paragraph_text: str
-    recognized_text: Optional[str]
-    assessment_date: datetime
+    recognized_text: Optional[str] = None
+    created_at: datetime
 
     class Config:
         from_attributes = True
@@ -58,10 +58,11 @@ class AssessmentResponse(BaseModel):
 # ================== Assessment Result Schemas ==================
 
 class AssessmentResultCreate(BaseModel):
-    """Create assessment result"""
+    """Schema for creating assessment results"""
     elapsed_time_seconds: float
     wpm: float
     spoken_words: int
+    speed_category: Optional[str] = None
     total_words: int
     correct_words: int
     wrong_words: int
@@ -70,14 +71,17 @@ class AssessmentResultCreate(BaseModel):
     accuracy_percent: float
     risk_score: float
     risk_level: str
+    risk_indicators: Optional[list] = None
     accuracy_feedback: Optional[str] = None
     difficulty_assessment: Optional[str] = None
+    recommendations: Optional[list] = None
 
 
 class AssessmentResultResponse(BaseModel):
-    """Assessment result response"""
+    """Schema for assessment result response"""
     id: int
     assessment_id: int
+    elapsed_time_seconds: float
     wpm: float
     accuracy_percent: float
     risk_score: float
@@ -88,131 +92,122 @@ class AssessmentResultResponse(BaseModel):
         from_attributes = True
 
 
-# ================== Pronunciation Schemas ==================
+# ================== Pronunciation Attempt Schemas ==================
 
 class PronunciationAttemptCreate(BaseModel):
-    """Create pronunciation attempt"""
+    """Schema for creating pronunciation attempt"""
     word: str
+    attempt_number: int = 1
     recognized_text: Optional[str] = None
-    is_correct: bool
+    is_correct: bool = False
     similarity_ratio: Optional[float] = None
     feedback: Optional[str] = None
 
 
 class PronunciationAttemptResponse(BaseModel):
-    """Pronunciation attempt response"""
+    """Schema for pronunciation attempt response"""
     id: int
     user_id: int
     word: str
     is_correct: bool
-    similarity_ratio: Optional[float]
+    similarity_ratio: Optional[float] = None
+    feedback: Optional[str] = None
     created_at: datetime
 
     class Config:
         from_attributes = True
 
 
+# ================== Pronunciation Check Schemas ==================
+
 class PronunciationCheckCreate(BaseModel):
-    """Create pronunciation check"""
+    """Schema for creating pronunciation check"""
     word: str
-    recognized: Optional[str] = None
-    is_correct: bool
+    spoken_word: Optional[str] = None
+    is_correct: bool = False
     similarity_ratio: Optional[float] = None
 
 
 class PronunciationCheckResponse(BaseModel):
-    """Pronunciation check response"""
+    """Schema for pronunciation check response"""
     id: int
     word: str
-    recognized: Optional[str]
+    spoken_word: Optional[str] = None
     is_correct: bool
-    similarity_ratio: Optional[float]
+    similarity_ratio: Optional[float] = None
+    created_at: datetime
 
     class Config:
         from_attributes = True
 
 
-# ================== Progress Schemas ==================
+# ================== Progress History Schemas ==================
+
+class ProgressHistoryCreate(BaseModel):
+    """Schema for creating progress history"""
+    average_accuracy: Optional[float] = None
+    average_wpm: Optional[float] = None
+    total_assessments: int = 1
+    average_risk_score: Optional[float] = None
+
 
 class ProgressHistoryResponse(BaseModel):
-    """Progress history response"""
+    """Schema for progress history response"""
     id: int
     user_id: int
-    period_date: datetime
+    average_accuracy: Optional[float] = None
+    average_wpm: Optional[float] = None
     total_assessments: int
-    avg_wpm: Optional[float]
-    avg_accuracy: Optional[float]
-    improvement_percent: Optional[float]
+    average_risk_score: Optional[float] = None
+    created_at: datetime
 
     class Config:
         from_attributes = True
 
 
-# ================== Speed Trainer Schemas ==================
+# ================== Speed Trainer Session Schemas ==================
 
 class SpeedTrainerSessionCreate(BaseModel):
-    """Create speed trainer session"""
+    """Schema for creating speed trainer session"""
     session_text: str
     total_words: int
-    elapsed_time_seconds: float
-    calculated_wpm: float
+    elapsed_time_seconds: Optional[float] = None
+    calculated_wpm: Optional[float] = None
 
 
 class SpeedTrainerSessionResponse(BaseModel):
-    """Speed trainer session response"""
+    """Schema for speed trainer session response"""
     id: int
-    calculated_wpm: float
-    elapsed_time_seconds: float
-    is_completed: bool
+    session_text: str
+    total_words: int
+    calculated_wpm: Optional[float] = None
     created_at: datetime
 
     class Config:
         from_attributes = True
 
 
-# ================== Chunk Reading Schemas ==================
+# ================== Chunk Reading Session Schemas ==================
 
 class ChunkReadingSessionCreate(BaseModel):
-    """Create chunk reading session"""
+    """Schema for creating chunk reading session"""
     session_text: str
     total_phrases: int
     total_words: int
-    elapsed_time_seconds: float
-    calculated_wpm: float
+    elapsed_time_seconds: Optional[float] = None
+    calculated_wpm: Optional[float] = None
+    phrases_per_second: Optional[float] = None
 
 
 class ChunkReadingSessionResponse(BaseModel):
-    """Chunk reading session response"""
+    """Schema for chunk reading session response"""
     id: int
-    calculated_wpm: float
-    elapsed_time_seconds: float
-    is_completed: bool
+    session_text: str
+    total_phrases: int
+    total_words: int
+    calculated_wpm: Optional[float] = None
+    phrases_per_second: Optional[float] = None
     created_at: datetime
-
-    class Config:
-        from_attributes = True
-
-
-# ================== Aggregated Response Schemas ==================
-
-class UserStatsResponse(BaseModel):
-    """User statistics aggregated"""
-    user: UserResponse
-    total_assessments: int
-    avg_wpm: Optional[float]
-    avg_accuracy: Optional[float]
-    latest_risk_score: Optional[float]
-    improvement_trend: Optional[str]  # "improving", "stable", "declining"
-
-    class Config:
-        from_attributes = True
-
-
-class AssessmentFullResponse(BaseModel):
-    """Complete assessment with results"""
-    assessment: AssessmentResponse
-    results: Optional[AssessmentResultResponse]
-    pronunciation_checks: List[PronunciationCheckResponse] = []
 
     class Config:
         from_attributes = True

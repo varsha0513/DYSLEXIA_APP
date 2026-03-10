@@ -942,9 +942,9 @@ async def assess_reading(
     except HTTPException:
         raise
     except Exception as e:
-            print(f"❌ Assessment error: {str(e)}\n")
-            msg = f"Assessment failed: {str(e)}"
-            raise HTTPException(status_code=500, detail=msg)
+        print(f"❌ Assessment error: {str(e)}\n")
+        msg = f"Assessment failed: {str(e)}"
+        raise HTTPException(status_code=500, detail=msg)
 
 @app.post("/assess-text", response_model=AssessmentResponse)
 async def assess_with_text(

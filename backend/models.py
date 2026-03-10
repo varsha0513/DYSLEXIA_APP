@@ -150,13 +150,13 @@ class PronunciationAttempt(Base):
 
 
 class PronunciationCheck(Base):
-    """Pronunciation check within an assessment"""
+    """Pronunciation check validation during assessment"""
     __tablename__ = "pronunciation_checks"
 
     id = Column(Integer, primary_key=True, index=True)
     assessment_id = Column(Integer, ForeignKey("assessments.id"), nullable=False)
     word = Column(String(100), nullable=False)
-    recognized = Column(String(100), nullable=True)
+    spoken_word = Column(String(100), nullable=True)
     is_correct = Column(Boolean, default=False)
     similarity_ratio = Column(Float, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
@@ -171,77 +171,68 @@ class PronunciationCheck(Base):
 # ================== Progress Tracking Models ==================
 
 class ProgressHistory(Base):
-    """User progress over time"""
+    """User progress tracking over time"""
     __tablename__ = "progress_history"
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-
-    # Weekly/Monthly aggregated stats
-    period_date = Column(DateTime, nullable=False, index=True)  # Week/Month start
-    period_type = Column(String(10), nullable=False)  # 'week' or 'month'
-
-    # Aggregated metrics
-    total_assessments = Column(Integer, default=0)
-    avg_wpm = Column(Float, nullable=True)
-    avg_accuracy = Column(Float, nullable=True)
-    avg_risk_score = Column(Float, nullable=True)
-    improvement_percent = Column(Float, nullable=True)
-
-    # Progress indicators
-    words_practiced = Column(Integer, default=0)
-    improvement_notes = Column(Text, nullable=True)
+    assessment_date = Column(DateTime, server_default=func.now())
+    
+    # Weekly metrics
+    week_number = Column(Integer, nullable=True)
+    year = Column(Integer, nullable=True)
+    
+    # Performance metrics
+    average_accuracy = Column(Float, nullable=True)
+    average_wpm = Column(Float, nullable=True)
+    total_assessments = Column(Integer, default=1)
+    average_risk_score = Column(Float, nullable=True)
+    
+    # Metadata
     created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     # Relationships
     user = relationship("User", back_populates="progress_history")
 
     def __repr__(self):
-        return f"<ProgressHistory(user_id={self.user_id}, period={self.period_date})>"
+        return f"<ProgressHistory(user_id={self.user_id}, week={self.week_number})>"
 
+
+# ================== Speed Trainer Models ==================
 
 class SpeedTrainerSession(Base):
     """Speed trainer session tracking"""
     __tablename__ = "speed_trainer_sessions"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # Optional, can be anonymous
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     session_text = Column(Text, nullable=False)
-    session_date = Column(DateTime, server_default=func.now())
-
-    # Results
     total_words = Column(Integer, nullable=False)
-    elapsed_time_seconds = Column(Float, nullable=False)
-    calculated_wpm = Column(Float, nullable=False)
-    current_round = Column(Integer, default=0)
-    total_rounds = Column(Integer, default=0)
-
-    # Status
-    is_completed = Column(Boolean, default=False)
+    elapsed_time_seconds = Column(Float, nullable=True)
+    calculated_wpm = Column(Float, nullable=True)
+    session_date = Column(DateTime, server_default=func.now())
     created_at = Column(DateTime, server_default=func.now())
 
     def __repr__(self):
         return f"<SpeedTrainerSession(wpm={self.calculated_wpm})>"
 
 
+# ================== Chunk Reading Models ==================
+
 class ChunkReadingSession(Base):
     """Chunk/phrase reading session tracking"""
     __tablename__ = "chunk_reading_sessions"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # Optional
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     session_text = Column(Text, nullable=False)
-    session_date = Column(DateTime, server_default=func.now())
-
-    # Results
     total_phrases = Column(Integer, nullable=False)
     total_words = Column(Integer, nullable=False)
-    elapsed_time_seconds = Column(Float, nullable=False)
-    calculated_wpm = Column(Float, nullable=False)
+    elapsed_time_seconds = Column(Float, nullable=True)
+    calculated_wpm = Column(Float, nullable=True)
     phrases_per_second = Column(Float, nullable=True)
-
-    # Status
-    is_completed = Column(Boolean, default=False)
+    session_date = Column(DateTime, server_default=func.now())
     created_at = Column(DateTime, server_default=func.now())
 
     def __repr__(self):
