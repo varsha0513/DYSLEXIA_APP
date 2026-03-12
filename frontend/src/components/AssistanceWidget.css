@@ -1,15 +1,23 @@
 .assistance-widget {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
   border-radius: 12px;
   padding: 30px;
   margin: 30px 0;
   color: white;
-  box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+  box-shadow: 0 10px 30px var(--shadow-hover);
+  transition: all 0.3s ease;
+  animation: slideUp 0.5s ease-out;
+}
+
+.assistance-widget:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 15px 40px var(--shadow-hover);
 }
 
 .assistance-header {
   margin-bottom: 30px;
   text-align: center;
+  animation: slideDown 0.6s ease-out;
 }
 
 .assistance-header h2 {
@@ -27,11 +35,18 @@
 }
 
 .assistance-section {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.15);
   border-radius: 10px;
   padding: 20px;
   margin-bottom: 20px;
   backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+  animation: slideUp 0.5s ease-out;
+}
+
+.assistance-section:hover {
+  background: rgba(255, 255, 255, 0.22);
+  transform: translateX(3px);
 }
 
 .section-title {
@@ -56,15 +71,15 @@
   justify-content: space-between;
   gap: 20px;
   padding: 15px;
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.15);
   border-radius: 8px;
   border-left: 4px solid #ff6b6b;
-  transition: all 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .word-error-item:hover {
-  background: rgba(255, 255, 255, 0.18);
-  transform: translateX(5px);
+  background: rgba(255, 255, 255, 0.22);
+  transform: translateX(8px);
 }
 
 .error-content {

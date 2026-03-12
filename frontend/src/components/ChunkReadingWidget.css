@@ -2,14 +2,19 @@
 
 /* Main Widget Container */
 .chunk-reading-widget {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
   border-radius: 16px;
   padding: 30px;
   margin: 20px 0;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 10px 40px var(--shadow-hover);
   color: white;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   animation: slideInUp 0.4s ease-out;
+  transition: all 0.3s ease;
+}
+
+.chunk-reading-widget:hover {
+  transform: translateY(-5px);
 }
 
 @keyframes slideInUp {
@@ -25,13 +30,14 @@
 
 /* Container */
 .chunk-reading-container {
-  background: rgba(255, 255, 255, 0.95);
-  color: #333;
+  background: var(--primary-bg);
+  color: var(--text-primary);
   border-radius: 16px;
   padding: 40px;
   max-width: 900px;
   margin: 0 auto;
-  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 15px 35px var(--shadow-hover);
+  transition: all 0.3s ease;
 }
 
 /* Header */
@@ -41,20 +47,20 @@
   align-items: center;
   margin-bottom: 30px;
   padding-bottom: 20px;
-  border-bottom: 2px solid rgba(102, 126, 234, 0.2);
+  border-bottom: 2px solid var(--border-color);
 }
 
 .chunk-reading-header h2 {
   font-size: 2em;
   margin: 0;
-  color: #667eea;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  color: var(--accent-primary);
+  text-shadow: 0 2px 4px var(--shadow);
 }
 
 .close-btn {
   background: transparent;
-  border: 2px solid #ddd;
-  color: #666;
+  border: 2px solid var(--border-color);
+  color: var(--text-secondary);
   width: 40px;
   height: 40px;
   border-radius: 50%;
@@ -67,14 +73,15 @@
 }
 
 .close-btn:hover {
-  background: #f5f5f5;
-  color: #333;
-  border-color: #999;
+  background: var(--secondary-bg);
+  color: var(--text-primary);
+  border-color: var(--text-secondary);
+  transform: rotate(90deg);
 }
 
 /* Introduction Section */
 .chunk-reading-intro {
-  background: #f8f9ff;
+  background: var(--secondary-bg);
   border-radius: 12px;
   padding: 25px;
   margin-bottom: 30px;

@@ -5,10 +5,12 @@ import { AudioResampler } from '../utils/audioResampler';
 export const useMediaRecorder = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [recognizedText, setRecognizedText] = useState('');
+  const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
   const recognitionRef = useRef<any>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const scriptProcessorRef = useRef<ScriptProcessorNode | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
   const audioChunksRef = useRef<Float32Array[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   const finalTranscriptRef = useRef<string>('');
@@ -41,6 +43,11 @@ export const useMediaRecorder = () => {
       const audioSource = audioContext.createMediaStreamSource(stream);
       audioSourceRef.current = audioSource;
 
+      // Create analyser for visualization
+      const analyserNode = audioContext.createAnalyser();
+      analyserRef.current = analyserNode;
+      setAnalyser(analyserNode);
+
       // ScriptProcessor to capture raw audio
       const scriptProcessor = audioContext.createScriptProcessor(4096, 1, 1);
       scriptProcessorRef.current = scriptProcessor;
@@ -56,6 +63,7 @@ export const useMediaRecorder = () => {
         }
       };
 
+      audioSource.connect(analyserNode);
       audioSource.connect(scriptProcessor);
       scriptProcessor.connect(audioContext.destination);
 
@@ -251,6 +259,7 @@ export const useMediaRecorder = () => {
 
   return {
     isRecording,
+    analyser,
     recognizedText,
     startRecording,
     stopRecording,

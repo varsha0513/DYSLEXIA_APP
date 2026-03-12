@@ -10,9 +10,11 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--primary-bg);
+  color: var(--text-primary);
   min-height: 100vh;
-  padding: 20px;
+  padding: 0;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 #root {
@@ -25,29 +27,37 @@ button {
   padding: 12px 24px;
   border: none;
   border-radius: 8px;
-  transition: all 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   font-weight: 600;
+  background: var(--button-primary-bg);
+  color: white;
 }
 
 button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transform: translateY(-3px);
+  box-shadow: 0 6px 20px var(--shadow-hover);
+  background: var(--button-primary-hover-bg);
 }
 
 button:active {
-  transform: translateY(0);
+  transform: translateY(-1px);
 }
 
 button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+  transform: none;
 }
 
 input, select {
   font-size: 16px;
   padding: 12px;
-  border: 2px solid #ddd;
+  border: 2px solid var(--input-border);
   border-radius: 8px;
+  background: var(--input-bg);
+  color: var(--input-text);
+  transition: all 0.3s ease;
+}
   font-family: inherit;
 }
 

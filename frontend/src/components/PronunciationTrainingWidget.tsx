@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { AudioAura } from './AudioAura';
 import './PronunciationTrainingWidget.css';
 
 interface PronunciationTrainingWidgetProps {
@@ -25,57 +26,6 @@ interface WordTrainingState {
   error?: string;
 }
 
-// Microphone Visualization Component
-const MicrophoneVisualizer: React.FC<{ isRecording: boolean; audioLevel: number }> = ({
-  isRecording,
-  audioLevel,
-}) => {
-  const bars = 5; // Number of bars in the visualization
-  const maxLevel = 255; // Max audio level
-
-  return (
-    <div className={`microphone-visualizer ${isRecording ? 'active' : ''}`}>
-      {/* Animated Microphone Icon */}
-      <div className="mic-container">
-        <div className="mic-icon">🎤</div>
-        {isRecording && (
-          <>
-            <div className="pulse-ring pulse-1" />
-            <div className="pulse-ring pulse-2" />
-            <div className="pulse-ring pulse-3" />
-          </>
-        )}
-      </div>
-
-      {/* Audio Level Bars */}
-      {isRecording && (
-        <div className="audio-bars">
-          {Array.from({ length: bars }).map((_, index) => {
-            // Create a wave effect by offsetting each bar
-            const offset = index * 15;
-            const calculatedLevel = Math.max(0, audioLevel - offset);
-            const barHeight = (calculatedLevel / maxLevel) * 100;
-
-            return (
-              <div
-                key={index}
-                className="audio-bar"
-                style={{
-                  height: `${Math.min(barHeight, 100)}%`,
-                  opacity: Math.max(0.4, barHeight / 100),
-                  animation: `barPulse ${0.1 + index * 0.05}s ease-in-out`,
-                }}
-              />
-            );
-          })}
-        </div>
-      )}
-
-      {/* Recording Status Text */}
-      {isRecording && <div className="recording-text">Listening...</div>}
-    </div>
-  );
-};
 
 export const PronunciationTrainingWidget: React.FC<PronunciationTrainingWidgetProps> = ({
   words,
@@ -539,11 +489,15 @@ export const PronunciationTrainingWidget: React.FC<PronunciationTrainingWidgetPr
                 </button>
               )}
 
-              {/* Microphone visualizer */}
-              <MicrophoneVisualizer isRecording={state.isRecording} audioLevel={audioLevel} />
+                {/* Audio Aura Visualization */}
+                {state.isRecording && (
+                  <div className="aura-wrapper">
+                    <AudioAura isRecording={state.isRecording} analyser={analyserRef.current} size="medium" />
+                  </div>
+                )}
 
-              {/* Error message */}
-              {state.error && <div className="error-message">{state.error}</div>}
+                {/* Error message */}
+                {state.error && <div className="error-message">{state.error}</div>}
 
               {/* Feedback from pronunciation check */}
               {state.feedback && (

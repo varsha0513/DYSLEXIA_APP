@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useMediaRecorder } from '../hooks/useMediaRecorder';
+import { AudioAura } from './AudioAura';
 import './ReadingTask.css';
 
 interface ReadingTaskProps {
@@ -13,7 +14,7 @@ export const ReadingTask: React.FC<ReadingTaskProps> = ({
   paragraph,
   onComplete,
 }) => {
-  const { startRecording, stopRecording, isRecording, recognizedText, getFinalText } =
+  const { startRecording, stopRecording, isRecording, recognizedText, analyser, getFinalText } =
     useMediaRecorder();
   const [isStarted, setIsStarted] = useState(false);
   const [error, setError] = useState<string>('');
@@ -75,6 +76,12 @@ export const ReadingTask: React.FC<ReadingTaskProps> = ({
         <div className="paragraph-box">
           <p className="paragraph-text">{paragraph}</p>
         </div>
+
+        {isRecording && (
+          <div className="aura-section">
+            <AudioAura isRecording={isRecording} analyser={analyser} size="large" />
+          </div>
+        )}
 
         {recognizedText && (
           <div className="recognition-box">

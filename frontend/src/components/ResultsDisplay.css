@@ -2,22 +2,30 @@
   display: flex;
   justify-content: center;
   padding: 20px;
+  animation: fadeIn 0.6s ease-out;
 }
 
 .results-card {
-  background: white;
+  background: var(--primary-bg);
   border-radius: 16px;
   padding: 40px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 10px 40px var(--shadow);
   max-width: 900px;
   width: 100%;
+  transition: all 0.3s ease;
+  animation: slideUp 0.5s ease-out;
+}
+
+.results-card:hover {
+  box-shadow: 0 15px 50px var(--shadow-hover);
 }
 
 .results-card h1 {
   text-align: center;
-  color: #4caf50;
+  color: var(--success-text);
   margin-bottom: 40px;
   font-size: 32px;
+  animation: slideDown 0.6s ease-out;
 }
 
 .metrics-grid {
@@ -28,22 +36,39 @@
 }
 
 .metric-card {
-  background: #f8f9fa;
+  background: var(--secondary-bg);
   border-radius: 12px;
   padding: 24px;
   text-align: center;
-  border-top: 4px solid #667eea;
+  border-top: 4px solid var(--accent-primary);
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  animation: slideUp 0.5s ease-out;
+  cursor: pointer;
+}
+
+.metric-card:nth-child(2) {
+  animation-delay: 0.1s;
+}
+
+.metric-card:nth-child(3) {
+  animation-delay: 0.2s;
+}
+
+.metric-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 12px 28px var(--shadow-hover);
 }
 
 .metric-value {
   font-size: 48px;
   font-weight: 700;
   margin-bottom: 8px;
+  color: var(--accent-primary);
 }
 
 .metric-label {
   font-size: 14px;
-  color: #666;
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 1px;
   margin-bottom: 8px;
@@ -51,7 +76,7 @@
 
 .metric-detail {
   font-size: 12px;
-  color: #999;
+  color: var(--text-tertiary);
 }
 
 .feedback-section {
@@ -59,7 +84,7 @@
 }
 
 .feedback-section h2 {
-  color: #333;
+  color: var(--text-primary);
   margin-bottom: 24px;
   font-size: 24px;
 }
@@ -67,7 +92,13 @@
 .feedback-item {
   margin-bottom: 28px;
   padding-bottom: 20px;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--border-color);
+  animation: slideUp 0.5s ease-out;
+  transition: all 0.3s ease;
+}
+
+.feedback-item:hover {
+  transform: translateX(5px);
 }
 
 .feedback-item:last-child {
@@ -76,28 +107,28 @@
 }
 
 .feedback-item h3 {
-  color: #333;
+  color: var(--text-primary);
   margin-bottom: 12px;
   font-size: 18px;
 }
 
 .feedback-item h4 {
-  color: #666;
+  color: var(--text-secondary);
   margin-top: 12px;
   margin-bottom: 8px;
   font-size: 14px;
 }
 
 .feedback-item p {
-  color: #666;
+  color: var(--text-secondary);
   line-height: 1.6;
   margin: 0;
 }
 
 .risk-summary {
-  background: #f0f4ff;
+  background: var(--info-bg);
   padding: 12px;
-  border-left: 4px solid #667eea;
+  border-left: 4px solid var(--info-border);
   border-radius: 4px;
   margin-bottom: 12px;
 }

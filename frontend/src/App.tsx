@@ -4,9 +4,12 @@ import { ReadingTask } from './components/ReadingTask';
 import { ResultsDisplay } from './components/ResultsDisplay';
 import { Loading } from './components/Loading';
 import { ErrorDisplay } from './components/ErrorDisplay';
+import { Navigation } from './components/Navigation';
+import { ThemeProvider } from './contexts/ThemeContext';
 import { getParagraphForAge } from './paragraphs';
 import { assessReading, getHealth } from './api';
 import { AssessmentResponse, AppState } from './types';
+import './theme.css';
 import './App.css';
 
 function App() {
@@ -70,17 +73,22 @@ function App() {
   };
 
   return (
-    <div className="app">
-      {state === 'age-input' && <AgeInput onAgeSubmit={handleAgeSubmit} />}
-      {state === 'reading' && (
-        <ReadingTask age={age} paragraph={paragraph} onComplete={handleReadingComplete} />
-      )}
-      {state === 'loading' && <Loading />}
-      {state === 'results' && results && (
-        <ResultsDisplay results={results} onRestart={handleRestart} />
-      )}
-      {state === 'error' && <ErrorDisplay error={error} onRetry={handleRetry} />}
-    </div>
+    <ThemeProvider>
+      <div className="app">
+        <Navigation />
+        <main className="app-main">
+          {state === 'age-input' && <AgeInput onAgeSubmit={handleAgeSubmit} />}
+          {state === 'reading' && (
+            <ReadingTask age={age} paragraph={paragraph} onComplete={handleReadingComplete} />
+          )}
+          {state === 'loading' && <Loading />}
+          {state === 'results' && results && (
+            <ResultsDisplay results={results} onRestart={handleRestart} />
+          )}
+          {state === 'error' && <ErrorDisplay error={error} onRetry={handleRetry} />}
+        </main>
+      </div>
+    </ThemeProvider>
   );
 }
 

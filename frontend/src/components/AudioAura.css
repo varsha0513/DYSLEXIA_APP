@@ -1,0 +1,119 @@
+.audio-aura-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  overflow: hidden;
+  background: radial-gradient(
+    circle,
+    rgba(26, 26, 26, 0.8) 0%,
+    rgba(10, 10, 10, 0.95) 100%
+  );
+  transition: all 0.3s ease;
+  box-shadow: 0 0 30px rgba(124, 143, 248, 0.2);
+}
+
+.audio-aura-container.recording {
+  box-shadow: 0 0 50px rgba(124, 143, 248, 0.4),
+              0 0 80px rgba(157, 93, 184, 0.2),
+              inset 0 0 30px rgba(124, 143, 248, 0.1);
+  animation: auraGlow 1.5s ease-in-out infinite;
+}
+
+.audio-aura-small {
+  width: 150px;
+  height: 150px;
+}
+
+.audio-aura-medium {
+  width: 280px;
+  height: 200px;
+}
+
+.audio-aura-large {
+  width: 400px;
+  height: 280px;
+}
+
+.audio-aura-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.aura-pulse-text {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: rgba(26, 26, 26, 0.8);
+  padding: 6px 14px;
+  border-radius: 20px;
+  backdrop-filter: blur(10px);
+  animation: slideUp 0.3s ease-out;
+  border: 1px solid rgba(124, 143, 248, 0.2);
+  z-index: 10;
+}
+
+.pulse-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #7c8ff8, #9d5db8);
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes auraGlow {
+  0%, 100% {
+    box-shadow: 0 0 50px rgba(124, 143, 248, 0.4),
+                0 0 80px rgba(157, 93, 184, 0.2),
+                inset 0 0 30px rgba(124, 143, 248, 0.1);
+  }
+  50% {
+    box-shadow: 0 0 70px rgba(124, 143, 248, 0.6),
+                0 0 100px rgba(157, 93, 184, 0.35),
+                inset 0 0 40px rgba(124, 143, 248, 0.15);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.2);
+  }
+}
+
+@media (max-width: 768px) {
+  .audio-aura-small {
+    width: 120px;
+    height: 120px;
+  }
+
+  .audio-aura-medium {
+    width: 220px;
+    height: 160px;
+  }
+
+  .audio-aura-large {
+    width: 300px;
+    height: 220px;
+  }
+
+  .aura-pulse-text {
+    font-size: 12px;
+    padding: 5px 12px;
+    bottom: 8px;
+  }
+}
