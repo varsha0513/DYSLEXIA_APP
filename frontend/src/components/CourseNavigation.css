@@ -1,0 +1,143 @@
+.course-navigation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 24px;
+  background: var(--primary-bg);
+  border-top: 2px solid var(--border-color);
+  margin-top: auto;
+}
+
+.nav-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border: 2px solid var(--border-color);
+  background: var(--button-secondary-bg);
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+}
+
+.nav-button:not(.disabled):hover {
+  background: var(--button-primary-bg);
+  color: white;
+  border-color: var(--button-primary-bg);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  transform: translateY(-2px);
+}
+
+.nav-button:not(.disabled):active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(102, 126, 234, 0.2);
+}
+
+.nav-button.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: var(--tertiary-bg);
+  border-color: var(--tertiary-bg);
+  color: var(--text-secondary);
+}
+
+.button-icon {
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.button-text {
+  font-size: 0.95rem;
+}
+
+.step-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.step-info {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.mini-progress-bar {
+  width: 150px;
+  height: 6px;
+  background: var(--tertiary-bg);
+  border-radius: 3px;
+  overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.mini-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 3px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .course-navigation {
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
+  }
+
+  .nav-button {
+    width: 100%;
+    justify-content: center;
+    padding: 12px 16px;
+    font-size: 0.95rem;
+  }
+
+  .button-text {
+    font-size: 0.9rem;
+  }
+
+  .mini-progress-bar {
+    width: 100%;
+    max-width: 200px;
+  }
+
+  .step-indicator {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .course-navigation {
+    padding: 12px 16px;
+  }
+
+  .nav-button {
+    padding: 10px 12px;
+    font-size: 0.85rem;
+  }
+
+  .button-text {
+    display: none;
+  }
+
+  .button-icon {
+    font-size: 1.1rem;
+  }
+
+  .step-info {
+    font-size: 0.8rem;
+  }
+
+  .mini-progress-bar {
+    width: 100%;
+    height: 4px;
+  }
+}

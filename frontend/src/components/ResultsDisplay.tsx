@@ -1,22 +1,20 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { AssessmentResponse } from '../types';
 import { AssistanceWidget } from './AssistanceWidget';
 import { PronunciationTrainingWidget } from './PronunciationTrainingWidget';
-import SpeedTrainerWidget from './SpeedTrainerWidget';
-import ChunkReadingWidget from './ChunkReadingWidget';
 import './ResultsDisplay.css';
 
 interface ResultsDisplayProps {
   results: AssessmentResponse;
   onRestart: () => void;
+  hideRestartButton?: boolean;
 }
 
 export const ResultsDisplay: React.FC<ResultsDisplayProps> = ({
   results,
   onRestart,
+  hideRestartButton = false,
 }) => {
-  const [showSpeedTrainer, setShowSpeedTrainer] = useState(false);
-  const [showChunkReading, setShowChunkReading] = useState(false);
   const {
     accuracy_metrics,
     speed_metrics,
@@ -186,46 +184,11 @@ export const ResultsDisplay: React.FC<ResultsDisplayProps> = ({
           />
         )}
 
-        {/* Speed Trainer - Guided Pace Reading */}
-        <div className="training-options">
-          <h3>📚 More Training Options</h3>
-          <div className="training-buttons">
-            <button
-              className="btn btn-training-option"
-              onClick={() => setShowSpeedTrainer(true)}
-            >
-              🚀 Improve Reading Speed
-            </button>
-            <button
-              className="btn btn-training-option"
-              onClick={() => setShowChunkReading(true)}
-            >
-              📖 Phrase Training
-            </button>
-          </div>
-        </div>
-
-        {/* Speed Training Widget Modal */}
-        {showSpeedTrainer && (
-          <SpeedTrainerWidget
-            paragraph={results.reference_text}
-            isShowing={showSpeedTrainer}
-            onClose={() => setShowSpeedTrainer(false)}
-          />
+        {!hideRestartButton && (
+          <button className="btn btn-restart" onClick={onRestart}>
+            🔄 Try Another Assessment
+          </button>
         )}
-
-        {/* Chunk Reading Widget Modal */}
-        {showChunkReading && (
-          <ChunkReadingWidget
-            paragraph={results.reference_text}
-            isShowing={showChunkReading}
-            onClose={() => setShowChunkReading(false)}
-          />
-        )}
-
-        <button className="btn btn-restart" onClick={onRestart}>
-          🔄 Try Another Assessment
-        </button>
       </div>
     </div>
   );

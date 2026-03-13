@@ -2,15 +2,8 @@
   min-height: 100vh;
   background: var(--primary-bg);
   transition: background-color 0.3s ease;
-}
-
-.app-main {
-  min-height: calc(100vh - 70px);
   display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  animation: fadeIn 0.5s ease-in;
+  flex-direction: column;
 }
 
 @keyframes fadeIn {

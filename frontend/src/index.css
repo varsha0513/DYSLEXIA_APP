@@ -57,7 +57,6 @@ input, select {
   background: var(--input-bg);
   color: var(--input-text);
   transition: all 0.3s ease;
-}
   font-family: inherit;
 }
 

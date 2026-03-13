@@ -98,6 +98,13 @@ const ChunkReadingWidget: React.FC<ChunkReadingWidgetProps> = ({
       setElapsedTime(0);
       setCompletionResult(null);
 
+      // Validate paragraph
+      if (!paragraph || paragraph.trim().length === 0) {
+        setError('No text available for chunk reading. Please complete the reading assessment first.');
+        setIsLoading(false);
+        return;
+      }
+
       // Call backend to prepare the session
       const response = await fetch(`${API_BASE_URL}/chunk-reading/prepare`, {
         method: 'POST',

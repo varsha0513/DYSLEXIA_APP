@@ -1,0 +1,114 @@
+.pronunciation-training-step {
+  width: 100%;
+  max-width: 800px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  animation: fadeInUp 0.6s ease-out;
+}
+
+.pronunciation-training-container {
+  width: 100%;
+  margin: 20px 0;
+}
+
+.pronunciation-tips {
+  width: 100%;
+  max-width: 700px;
+  margin-top: 32px;
+  padding: 20px 24px;
+  background: var(--warning-bg);
+  border-left: 4px solid var(--warning-border);
+  border-radius: 8px;
+  animation: slideUp 0.6s ease-out 0.3s both;
+}
+
+.tips-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--warning-text);
+  margin: 0 0 12px 0;
+}
+
+.tips-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tips-list li {
+  font-size: 0.9rem;
+  color: var(--warning-text);
+  padding-left: 24px;
+  position: relative;
+  line-height: 1.5;
+}
+
+.tips-list li::before {
+  content: '▸';
+  position: absolute;
+  left: 0;
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(15px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .pronunciation-training-step {
+    padding: 0 16px;
+  }
+
+  .pronunciation-tips {
+    margin-top: 24px;
+    padding: 18px 20px;
+  }
+
+  .tips-title {
+    font-size: 1rem;
+  }
+
+  .tips-list li {
+    font-size: 0.85rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .pronunciation-tips {
+    margin-top: 20px;
+    padding: 16px 16px;
+  }
+
+  .tips-title {
+    font-size: 0.95rem;
+  }
+
+  .tips-list li {
+    font-size: 0.8rem;
+    padding-left: 20px;
+  }
+}

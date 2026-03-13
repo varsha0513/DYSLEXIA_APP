@@ -1,22 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { AgeInput } from './components/AgeInput';
-import { ReadingTask } from './components/ReadingTask';
-import { ResultsDisplay } from './components/ResultsDisplay';
-import { Loading } from './components/Loading';
-import { ErrorDisplay } from './components/ErrorDisplay';
 import { Navigation } from './components/Navigation';
+import { CourseLayout } from './components/CourseLayout';
+import { CourseView } from './components/CourseView';
+import { CourseProvider } from './contexts/CourseContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { getParagraphForAge } from './paragraphs';
 import { assessReading, getHealth } from './api';
-import { AssessmentResponse, AppState } from './types';
+import { AssessmentResponse } from './types';
 import './theme.css';
 import './App.css';
 
-function App() {
-  const [state, setState] = useState<AppState>('age-input');
+function AppContent() {
   const [age, setAge] = useState<number>(0);
   const [paragraph, setParagraph] = useState<string>('');
-  const [results, setResults] = useState<AssessmentResponse | null>(null);
+  const [assessmentResults, setAssessmentResults] = useState<AssessmentResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string>('');
 
   // Check backend health on component mount
@@ -27,7 +25,6 @@ function App() {
         console.log('✅ Backend is healthy');
       } catch (err) {
         console.warn('⚠️ Backend not responding - functionality limited');
-        // Don't show error on startup, just warn
       }
     };
 
@@ -38,56 +35,63 @@ function App() {
     setAge(selectedAge);
     const selectedParagraph = getParagraphForAge(selectedAge);
     setParagraph(selectedParagraph);
-    setState('reading');
   };
 
   const handleReadingComplete = async (audioBlob: Blob, recognizedText: string) => {
-    setState('loading');
+    setIsLoading(true);
     setError('');
 
     try {
       console.log('📤 Processing assessment...');
       const response = await assessReading(age, paragraph, audioBlob, recognizedText);
       console.log('📊 Assessment response received:', response);
-      setResults(response);
-      setState('results');
+      setAssessmentResults(response);
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to assess reading. Please try again.';
       console.error('Assessment error:', errorMessage);
       setError(errorMessage);
-      setState('error');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleRestart = () => {
-    setState('age-input');
-    setAge(0);
-    setParagraph('');
-    setResults(null);
+  const handleRetry = () => {
     setError('');
   };
 
-  const handleRetry = () => {
-    setState('age-input');
+  const handleRestart = () => {
+    setAge(0);
+    setParagraph('');
+    setAssessmentResults(null);
     setError('');
   };
 
   return (
+    <div className="app">
+      <Navigation />
+      <CourseLayout>
+        <CourseView
+          age={age}
+          paragraph={paragraph}
+          assessmentResults={assessmentResults}
+          isLoading={isLoading}
+          error={error}
+          onAgeSubmit={handleAgeSubmit}
+          onReadingComplete={handleReadingComplete}
+          onRetry={handleRetry}
+          onRestart={handleRestart}
+        />
+      </CourseLayout>
+    </div>
+  );
+}
+
+function App() {
+  return (
     <ThemeProvider>
-      <div className="app">
-        <Navigation />
-        <main className="app-main">
-          {state === 'age-input' && <AgeInput onAgeSubmit={handleAgeSubmit} />}
-          {state === 'reading' && (
-            <ReadingTask age={age} paragraph={paragraph} onComplete={handleReadingComplete} />
-          )}
-          {state === 'loading' && <Loading />}
-          {state === 'results' && results && (
-            <ResultsDisplay results={results} onRestart={handleRestart} />
-          )}
-          {state === 'error' && <ErrorDisplay error={error} onRetry={handleRetry} />}
-        </main>
-      </div>
+      <CourseProvider>
+        <AppContent />
+      </CourseProvider>
     </ThemeProvider>
   );
 }
