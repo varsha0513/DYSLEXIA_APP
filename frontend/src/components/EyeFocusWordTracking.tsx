@@ -5,6 +5,7 @@ import './EyeFocusWordTracking.css';
 interface EyeFocusWordTrackingProps {
   paragraph: string;
   onComplete: (results: EyeFocusResults) => void;
+  timePerWordMs?: number; // Speed in milliseconds per word
 }
 
 export interface EyeFocusResults {
@@ -23,6 +24,7 @@ export interface EyeFocusResults {
 export const EyeFocusWordTracking: React.FC<EyeFocusWordTrackingProps> = ({
   paragraph,
   onComplete,
+  timePerWordMs = 800, // Default to 0.8 seconds
 }) => {
   const [state, setState] = useState<'idle' | 'countdown' | 'tracking' | 'results'>('idle');
   const [countdownValue, setCountdownValue] = useState(3);
@@ -34,7 +36,6 @@ export const EyeFocusWordTracking: React.FC<EyeFocusWordTrackingProps> = ({
     useMediaRecorder();
   
   const words = paragraph.split(/\s+/).filter(w => w.length > 0);
-  const timePerWordMs = 800; // 0.8 seconds per word
   const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const trackingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const elapsedTimeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -84,7 +85,7 @@ export const EyeFocusWordTracking: React.FC<EyeFocusWordTrackingProps> = ({
         clearInterval(trackingIntervalRef.current);
       }
     };
-  }, [state, words.length]);
+  }, [state, words.length, timePerWordMs]);
 
   // Handle elapsed time tracking
   useEffect(() => {
@@ -123,28 +124,24 @@ export const EyeFocusWordTracking: React.FC<EyeFocusWordTrackingProps> = ({
   };
 
   const evaluateReadingAccuracy = (original: string, recognized: string): EyeFocusResults => {
-    const origWords = original.split(/\s+/).filter(w => w.length > 0);
-    const recWords = recognized.split(/\s+/).filter(w => w.length > 0);
-
     const cleanWord = (word: string) =>
       word.toLowerCase().replace(/[^\w]/g, '');
 
-    const cleanOrigWords = origWords.map(cleanWord);
-    const cleanRecWords = recWords.map(cleanWord);
+    const origWords = original.split(/\s+/).filter(w => w.length > 0).map(cleanWord);
+    const recWords = recognized.split(/\s+/).filter(w => w.length > 0).map(cleanWord);
 
     const correctWords: string[] = [];
     const wrongWords: Array<[string, string]> = [];
     const missingWords: string[] = [];
-    const extraWords: string[] = [];
 
-    // Compare word by word
-    const maxLen = Math.max(cleanOrigWords.length, cleanRecWords.length);
+    // Optimized single-pass comparison
+    const maxLen = Math.max(origWords.length, recWords.length);
     for (let i = 0; i < maxLen; i++) {
-      const origWord = cleanOrigWords[i];
-      const recWord = cleanRecWords[i];
+      const origWord = origWords[i];
+      const recWord = recWords[i];
 
       if (!origWord && recWord) {
-        extraWords.push(recWord);
+        continue;
       } else if (origWord && !recWord) {
         missingWords.push(origWord);
       } else if (origWord && recWord) {
@@ -156,7 +153,7 @@ export const EyeFocusWordTracking: React.FC<EyeFocusWordTrackingProps> = ({
       }
     }
 
-    const totalWords = cleanOrigWords.length;
+    const totalWords = origWords.length;
     const correctCount = correctWords.length;
     const wrongCount = wrongWords.length;
     const missingCount = missingWords.length;

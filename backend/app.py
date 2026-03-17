@@ -3,7 +3,7 @@ FastAPI Backend API for Dyslexia Assessment System
 Wraps the complete reading assessment pipeline into REST endpoints
 """
 
-from fastapi import FastAPI, File, UploadFile, HTTPException, Form, Depends
+from fastapi import FastAPI, File, UploadFile, HTTPException, Form, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -23,6 +23,7 @@ from pronunciation_trainer import PronunciationTrainer, PronunciationComparator
 from speed_trainer import SpeedTrainer
 from phrase_trainer import PhraseTrainer
 from database import init_db, get_db, engine
+from auth_utils import hash_password, verify_password, create_access_token, decode_access_token, validate_email, validate_password
 from crud import (
     UserCRUD,
     AssessmentCRUD,
@@ -511,6 +512,158 @@ def process_audio_file(audio_bytes: bytes, filename: str = 'audio.wav') -> str:
 
 # ================== API Endpoints ==================
 
+# ================= Authentication Endpoints =================
+
+@app.post("/auth/signup", response_model=schemas.LoginResponse)
+async def signup(user_data: schemas.UserSignUp, db: Session = Depends(get_db)):
+    """
+    Register a new user.
+    
+    Args:
+        user_data: User signup data (name, email, age, password)
+        db: Database session
+        
+    Returns:
+        Login response with access token and user data
+    """
+    try:
+        # Validate email format
+        if not validate_email(user_data.email):
+            raise HTTPException(status_code=400, detail="Invalid email format")
+        
+        # Check if email already exists
+        user_crud = UserCRUD(db)
+        existing_user = user_crud.get_by_email(user_data.email)
+        if existing_user:
+            raise HTTPException(status_code=400, detail="Email already registered")
+        
+        # Validate password
+        if user_data.password != user_data.password_confirm:
+            raise HTTPException(status_code=400, detail="Passwords do not match")
+        
+        is_valid, message = validate_password(user_data.password)
+        if not is_valid:
+            raise HTTPException(status_code=400, detail=message)
+        
+        # Hash password for the username too
+        username = user_data.name.replace(" ", "_").lower()
+        
+        # Create user
+        user_create = schemas.UserCreate(
+            username=username,
+            email=user_data.email,
+            password=user_data.password,
+            age=user_data.age
+        )
+        
+        user = user_crud.create_user_with_password(user_create)
+        
+        # Create access token
+        access_token = create_access_token(data={"user_id": user.id, "email": user.email})
+        
+        user_response = schemas.UserResponse.from_orm(user)
+        
+        return schemas.LoginResponse(
+            access_token=access_token,
+            token_type="bearer",
+            user=user_response
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Signup error: {e}")
+        raise HTTPException(status_code=500, detail="Signup failed")
+
+
+@app.post("/auth/login", response_model=schemas.LoginResponse)
+async def login(credentials: schemas.UserLogin, db: Session = Depends(get_db)):
+    """
+    Login a user with email and password.
+    
+    Args:
+        credentials: Login credentials (email, password)
+        db: Database session
+        
+    Returns:
+        Login response with access token and user data
+    """
+    try:
+        # Get user by email
+        user_crud = UserCRUD(db)
+        user = user_crud.get_by_email(credentials.email)
+        
+        if not user:
+            raise HTTPException(status_code=401, detail="Invalid email or password")
+        
+        # Verify password
+        if not verify_password(credentials.password, user.password_hash):
+            raise HTTPException(status_code=401, detail="Invalid email or password")
+        
+        # Create access token
+        access_token = create_access_token(data={"user_id": user.id, "email": user.email})
+        
+        user_response = schemas.UserResponse.from_orm(user)
+        
+        return schemas.LoginResponse(
+            access_token=access_token,
+            token_type="bearer",
+            user=user_response
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Login error: {e}")
+        raise HTTPException(status_code=500, detail="Login failed")
+
+
+@app.get("/auth/me", response_model=schemas.UserResponse)
+async def get_current_user(
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
+    """
+    Get current authenticated user.
+    
+    Args:
+        authorization: Authorization header with token
+        db: Database session
+        
+    Returns:
+        Current user data
+    """
+    try:
+        if not authorization or not authorization.startswith("Bearer "):
+            raise HTTPException(status_code=401, detail="No authorization token")
+        
+        token = authorization.replace("Bearer ", "")
+        payload = decode_access_token(token)
+        
+        if not payload:
+            raise HTTPException(status_code=401, detail="Invalid or expired token")
+        
+        user_id = payload.get("user_id")
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        
+        user_crud = UserCRUD(db)
+        user = user_crud.get_user(user_id)
+        
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        return schemas.UserResponse.from_orm(user)
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Get current user error: {e}")
+        raise HTTPException(status_code=401, detail="Authentication failed")
+
+
+# ================== TTS Endpoints ================
+
 @app.post("/tts/word")
 async def generate_word_pronunciation(word: str = Form(...)):
     """
@@ -883,10 +1036,10 @@ async def assess_reading(
         try:
             print("💾 Saving assessment to database...")
             # Create or get user
-            user = UserCRUD.get_user_by_email(db, "guest@dyslexia.local")
+            user_crud = UserCRUD(db)
+            user = user_crud.get_by_email("guest@dyslexia.local")
             if not user:
-                user = UserCRUD.create_user(
-                    db,
+                user = user_crud.create_user(
                     schemas.UserCreate(
                         username="guest",
                         email="guest@dyslexia.local",
@@ -895,8 +1048,7 @@ async def assess_reading(
                 )
             else:
                 # Update age if different
-                UserCRUD.update_user(
-                    db,
+                user_crud.update_user(
                     user.id,
                     schemas.UserUpdate(age=age)
                 )

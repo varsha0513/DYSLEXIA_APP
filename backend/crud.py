@@ -13,60 +13,76 @@ from models import (
     PronunciationCheck, ProgressHistory, SpeedTrainerSession,
     ChunkReadingSession
 )
+from auth_utils import hash_password
 import schemas
 
 
 # ================== User Operations ==================
 
 class UserCRUD:
-    @staticmethod
-    def create_user(db: Session, user_data: schemas.UserCreate) -> User:
+    def __init__(self, db: Session):
+        """Initialize CRUD with database session"""
+        self.db = db
+    
+    def create_user(self, user_data: schemas.UserCreate) -> User:
         """Create new user"""
         db_user = User(
             username=user_data.username,
             email=user_data.email,
+            password_hash=user_data.password if hasattr(user_data, 'password') and user_data.password else hash_password(""),
             age=user_data.age
         )
-        db.add(db_user)
-        db.commit()
-        db.refresh(db_user)
+        self.db.add(db_user)
+        self.db.commit()
+        self.db.refresh(db_user)
         return db_user
 
-    @staticmethod
-    def get_user_by_id(db: Session, user_id: int) -> Optional[User]:
+    def create_user_with_password(self, user_data: schemas.UserCreate) -> User:
+        """Create new user with password hashing"""
+        if not hasattr(user_data, 'password') or not user_data.password:
+            raise ValueError("Password is required for user creation")
+        password_hash = hash_password(user_data.password)
+        db_user = User(
+            username=user_data.username,
+            email=user_data.email,
+            password_hash=password_hash,
+            age=user_data.age
+        )
+        self.db.add(db_user)
+        self.db.commit()
+        self.db.refresh(db_user)
+        return db_user
+
+    def get_user(self, user_id: int) -> Optional[User]:
         """Get user by ID"""
-        return db.query(User).filter(User.id == user_id).first()
+        return self.db.query(User).filter(User.id == user_id).first()
 
-    @staticmethod
-    def get_user_by_username(db: Session, username: str) -> Optional[User]:
+    def get_user_by_username(self, username: str) -> Optional[User]:
         """Get user by username"""
-        return db.query(User).filter(User.username == username).first()
+        return self.db.query(User).filter(User.username == username).first()
 
-    @staticmethod
-    def get_user_by_email(db: Session, email: str) -> Optional[User]:
+    def get_by_email(self, email: str) -> Optional[User]:
         """Get user by email"""
-        return db.query(User).filter(User.email == email).first()
+        return self.db.query(User).filter(User.email == email).first()
 
-    @staticmethod
-    def update_user(db: Session, user_id: int, user_data: schemas.UserUpdate) -> Optional[User]:
+    def update_user(self, user_id: int, user_data: schemas.UserUpdate) -> Optional[User]:
         """Update user data"""
-        db_user = db.query(User).filter(User.id == user_id).first()
+        db_user = self.db.query(User).filter(User.id == user_id).first()
         if db_user:
             if user_data.age is not None:
                 db_user.age = user_data.age
             if user_data.email is not None:
                 db_user.email = user_data.email
-            db.commit()
-            db.refresh(db_user)
+            self.db.commit()
+            self.db.refresh(db_user)
         return db_user
 
-    @staticmethod
-    def delete_user(db: Session, user_id: int) -> bool:
+    def delete_user(self, user_id: int) -> bool:
         """Delete user"""
-        db_user = db.query(User).filter(User.id == user_id).first()
+        db_user = self.db.query(User).filter(User.id == user_id).first()
         if db_user:
-            db.delete(db_user)
-            db.commit()
+            self.db.delete(db_user)
+            self.db.commit()
             return True
         return False
 

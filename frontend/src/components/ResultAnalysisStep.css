@@ -33,9 +33,32 @@
 
 .next-steps-text {
   font-size: 0.95rem;
-  margin: 0;
+  margin: 0 0 16px 0;
   line-height: 1.6;
   opacity: 0.95;
+}
+
+.btn-continue {
+  background: white;
+  color: #667eea;
+  border: none;
+  padding: 12px 24px;
+  font-size: 1rem;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  width: 100%;
+  max-width: 300px;
+}
+
+.btn-continue:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.btn-continue:active {
+  transform: translateY(0);
 }
 
 @keyframes fadeInUp {

@@ -6,6 +6,7 @@ import { ResultAnalysisStep } from './ResultAnalysisStep';
 import { PronunciationTrainingStep } from './PronunciationTrainingStep';
 import { ReadingSpeedTrainingStep } from './ReadingSpeedTrainingStep';
 import { EyeFocusTestStep } from './EyeFocusTestStep';
+import { PhraseTrainingStep } from './PhraseTrainingStep';
 import { AssessmentResponse } from '../types';
 import { Loading } from './Loading';
 import { ErrorDisplay } from './ErrorDisplay';
@@ -76,6 +77,9 @@ export const CourseView: React.FC<CourseViewProps> = ({
 
     case 'eye-focus-test':
       return <EyeFocusTestStep paragraph={paragraph} />;
+
+    case 'phrase-training':
+      return <PhraseTrainingStep paragraph={paragraph} />;
 
     case 'reading-speed-training':
       return assessmentResults ? (

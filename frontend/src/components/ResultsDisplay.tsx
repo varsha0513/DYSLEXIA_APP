@@ -1,7 +1,5 @@
 import React from 'react';
 import { AssessmentResponse } from '../types';
-import { AssistanceWidget } from './AssistanceWidget';
-import { PronunciationTrainingWidget } from './PronunciationTrainingWidget';
 import './ResultsDisplay.css';
 
 interface ResultsDisplayProps {
@@ -168,21 +166,7 @@ export const ResultsDisplay: React.FC<ResultsDisplayProps> = ({
           </div>
         </div>
 
-        {/* Assistance Module - TTS Help */}
-        {results.assistance && <AssistanceWidget assistance={results.assistance} />}
-
-        {/* Pronunciation Training - Interactive Learning */}
-        {results.assistance && results.assistance.has_errors && (
-          <PronunciationTrainingWidget
-            words={[
-              ...results.assistance.wrong_words.map(([_, correct]) => correct),
-              ...results.assistance.missing_words,
-            ]}
-            onComplete={(results) => {
-              console.log('✅ Pronunciation training complete:', results);
-            }}
-          />
-        )}
+        {/* Assistance Module - Removed, will be in Pronunciation Training step */}
 
         {!hideRestartButton && (
           <button className="btn btn-restart" onClick={onRestart}>

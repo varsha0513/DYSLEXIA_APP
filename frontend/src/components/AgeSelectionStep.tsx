@@ -9,11 +9,12 @@ export interface AgeSelectionStepProps {
 }
 
 export const AgeSelectionStep: React.FC<AgeSelectionStepProps> = ({ onAgeSubmit }) => {
-  const { markStepComplete } = useCourse();
+  const { markStepComplete, goNextStep } = useCourse();
 
   const handleAgeSubmit = (age: number) => {
     markStepComplete('age-selection');
     onAgeSubmit(age);
+    goNextStep();
   };
 
   return (

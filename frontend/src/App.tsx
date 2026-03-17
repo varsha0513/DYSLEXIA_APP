@@ -4,18 +4,37 @@ import { CourseLayout } from './components/CourseLayout';
 import { CourseView } from './components/CourseView';
 import { CourseProvider } from './contexts/CourseContext';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import LoginPage from './components/LoginPage';
+import SignUpPage from './components/SignUpPage';
+import TrainingDashboard from './components/Dashboard';
 import { getParagraphForAge } from './paragraphs';
 import { assessReading, getHealth } from './api';
 import { AssessmentResponse } from './types';
 import './theme.css';
 import './App.css';
 
+type AppPage = 'login' | 'signup' | 'dashboard' | 'training';
+
 function AppContent() {
+  const { isAuthenticated, isLoading } = useAuth();
+  const [currentPage, setCurrentPage] = useState<AppPage>('login');
   const [age, setAge] = useState<number>(0);
   const [paragraph, setParagraph] = useState<string>('');
   const [assessmentResults, setAssessmentResults] = useState<AssessmentResponse | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [appIsLoading, setAppIsLoading] = useState(false);
   const [error, setError] = useState<string>('');
+
+  // Redirect based on authentication state
+  useEffect(() => {
+    if (!isLoading) {
+      if (isAuthenticated) {
+        setCurrentPage('dashboard');
+      } else {
+        setCurrentPage('login');
+      }
+    }
+  }, [isAuthenticated, isLoading]);
 
   // Check backend health on component mount
   useEffect(() => {
@@ -38,7 +57,7 @@ function AppContent() {
   };
 
   const handleReadingComplete = async (audioBlob: Blob, recognizedText: string) => {
-    setIsLoading(true);
+    setAppIsLoading(true);
     setError('');
 
     try {
@@ -51,7 +70,7 @@ function AppContent() {
       console.error('Assessment error:', errorMessage);
       setError(errorMessage);
     } finally {
-      setIsLoading(false);
+      setAppIsLoading(false);
     }
   };
 
@@ -66,15 +85,54 @@ function AppContent() {
     setError('');
   };
 
+  const navigateTo = (page: AppPage) => {
+    setCurrentPage(page);
+  };
+
+  // Show loading spinner while checking authentication
+  if (isLoading) {
+    return (
+      <div className="app-loading">
+        <div className="loading-spinner">
+          <div className="spinner"></div>
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Render different pages based on authentication and current page
+  if (!isAuthenticated) {
+    return (
+      <div className="app">
+        {currentPage === 'signup' ? (
+          <SignUpPage onNavigate={(page) => navigateTo(page === 'dashboard' ? 'dashboard' : page)} />
+        ) : (
+          <LoginPage onNavigate={(page) => navigateTo(page === 'dashboard' ? 'dashboard' : page)} />
+        )}
+      </div>
+    );
+  }
+
+  // User is authenticated
+  if (currentPage === 'dashboard') {
+    return (
+      <div className="app">
+        <TrainingDashboard onNavigate={(page) => navigateTo(page === 'training' ? 'training' : page)} />
+      </div>
+    );
+  }
+
+  // Training course view
   return (
     <div className="app">
-      <Navigation />
+      <Navigation onDashboard={() => navigateTo('dashboard')} />
       <CourseLayout>
         <CourseView
           age={age}
           paragraph={paragraph}
           assessmentResults={assessmentResults}
-          isLoading={isLoading}
+          isLoading={appIsLoading}
           error={error}
           onAgeSubmit={handleAgeSubmit}
           onReadingComplete={handleReadingComplete}
@@ -89,9 +147,11 @@ function AppContent() {
 function App() {
   return (
     <ThemeProvider>
-      <CourseProvider>
-        <AppContent />
-      </CourseProvider>
+      <AuthProvider>
+        <CourseProvider>
+          <AppContent />
+        </CourseProvider>
+      </AuthProvider>
     </ThemeProvider>
   );
 }

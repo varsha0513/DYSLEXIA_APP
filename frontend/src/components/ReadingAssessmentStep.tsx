@@ -15,11 +15,12 @@ export const ReadingAssessmentStep: React.FC<ReadingAssessmentStepProps> = ({
   paragraph,
   onComplete,
 }) => {
-  const { markStepComplete } = useCourse();
+  const { markStepComplete, goNextStep } = useCourse();
 
   const handleComplete = (audioBlob: Blob, recognizedText: string) => {
     markStepComplete('reading-assessment');
     onComplete(audioBlob, recognizedText);
+    goNextStep();
   };
 
   return (

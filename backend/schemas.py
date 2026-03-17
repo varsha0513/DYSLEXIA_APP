@@ -14,6 +14,7 @@ class UserCreate(BaseModel):
     """Schema for creating a new user"""
     username: str
     email: EmailStr
+    password: str
     age: Optional[int] = None
 
 
@@ -33,6 +34,28 @@ class UserResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class UserSignUp(BaseModel):
+    """Schema for user sign up"""
+    name: str
+    email: EmailStr
+    age: int
+    password: str
+    password_confirm: str
+
+
+class UserLogin(BaseModel):
+    """Schema for user login"""
+    email: EmailStr
+    password: str
+
+
+class LoginResponse(BaseModel):
+    """Schema for login response"""
+    access_token: str
+    token_type: str
+    user: UserResponse
 
 
 # ================== Assessment Schemas ==================

@@ -10,7 +10,11 @@ export interface ResultAnalysisStepProps {
 }
 
 export const ResultAnalysisStep: React.FC<ResultAnalysisStepProps> = ({ results }) => {
-  const { markStepComplete } = useCourse();
+  const { markStepComplete, goNextStep } = useCourse();
+
+  const handleContinue = () => {
+    goNextStep();
+  };
 
   React.useEffect(() => {
     markStepComplete('result-analysis');
@@ -35,6 +39,9 @@ export const ResultAnalysisStep: React.FC<ResultAnalysisStepProps> = ({ results 
           Based on these results, we'll work on pronunciation training and reading speed improvement.
           Let's continue to the next step!
         </p>
+        <button className="btn btn-continue" onClick={handleContinue}>
+          Continue to Pronunciation Training →
+        </button>
       </div>
     </div>
   );

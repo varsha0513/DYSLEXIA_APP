@@ -6,6 +6,7 @@ export type CourseStep =
   | 'result-analysis'
   | 'pronunciation-training'
   | 'eye-focus-test'
+  | 'phrase-training'
   | 'reading-speed-training';
 
 export type StepCompletion = Record<CourseStep, boolean>;
@@ -30,6 +31,7 @@ const COURSE_STEPS: CourseStep[] = [
   'result-analysis',
   'pronunciation-training',
   'eye-focus-test',
+  'phrase-training',
   'reading-speed-training',
 ];
 
@@ -39,6 +41,7 @@ const STEP_TITLES: Record<CourseStep, string> = {
   'result-analysis': 'Result Analysis',
   'pronunciation-training': 'Pronunciation Training',
   'eye-focus-test': 'Eye Focus & Guided Reading',
+  'phrase-training': 'Chunk Reading (Phrase Training)',
   'reading-speed-training': 'Speed Improvement',
 };
 
@@ -52,6 +55,7 @@ export const CourseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     'result-analysis': false,
     'pronunciation-training': false,
     'eye-focus-test': false,
+    'phrase-training': false,
     'reading-speed-training': false,
   });
 
@@ -117,8 +121,9 @@ export const CourseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       'reading-assessment': false,
       'result-analysis': false,
       'pronunciation-training': false,
-      'reading-speed-training': false,
       'eye-focus-test': false,
+      'phrase-training': false,
+      'reading-speed-training': false,
     });
   }, []);
 
