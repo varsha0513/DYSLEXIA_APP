@@ -140,11 +140,11 @@ export const useMediaRecorder = () => {
       try {
         setIsRecording(false);
         
-        // Add a small delay to allow Web Speech API to process final results
+        // Add longer delay to allow Web Speech API to process final results
         const stopTimeout = setTimeout(() => {
           console.log('⏱️ Stop timeout - proceeding with captured audio');
           proceedWithStop();
-        }, 500);  // 500ms timeout for final processing
+        }, 1000);  // 1000ms timeout for final processing
 
         const proceedWithStop = () => {
           clearTimeout(stopTimeout);
@@ -155,11 +155,11 @@ export const useMediaRecorder = () => {
               console.log('⏹ Attempting to stop Web Speech API...');
               recognitionRef.current.stop();
               
-              // Give it a moment to finish the onend callback
+              // Wait longer (1000ms) for onend callback and final result processing
               setTimeout(() => {
                 console.log(`🎤 Final recognized text (${finalTranscriptRef.current.split(' ').filter(w => w).length} words): "${finalTranscriptRef.current.trim()}"`);
                 finishAudioProcessing();
-              }, 100);
+              }, 1000);
             } catch (error) {
               console.error('Error stopping recognition:', error);
               finishAudioProcessing();

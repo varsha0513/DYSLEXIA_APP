@@ -4,7 +4,7 @@ Data validation and serialization
 """
 
 from pydantic import BaseModel, EmailStr
-from typing import Optional, List
+from typing import Optional
 from datetime import datetime
 
 
@@ -34,15 +34,16 @@ class UserResponse(BaseModel):
 
     class Config:
         from_attributes = True
+        populate_by_name = True
 
 
 class UserSignUp(BaseModel):
     """Schema for user sign up"""
     name: str
     email: EmailStr
-    age: int
     password: str
     password_confirm: str
+    age: Optional[int] = None
 
 
 class UserLogin(BaseModel):

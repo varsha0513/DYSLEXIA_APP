@@ -105,9 +105,16 @@ export const EyeFocusWordTracking: React.FC<EyeFocusWordTrackingProps> = ({
   // Check if tracking is complete
   useEffect(() => {
     if (state === 'tracking' && currentWordIndex >= words.length - 1) {
-      // Stop recording and evaluate
-      stopRecording();
-      finishTracking();
+      // Add 2 second delay after last word to let user finish speaking and API process results
+      const delayTimer = setTimeout(() => {
+        stopRecording();
+        // Give stopRecording time to complete its internal processing before getting final text
+        setTimeout(() => {
+          finishTracking();
+        }, 1500); // Wait for Web Speech API to finalize
+      }, 2000); // Wait 2 seconds after last word
+
+      return () => clearTimeout(delayTimer);
     }
   }, [currentWordIndex, state, words.length, stopRecording]);
 
@@ -118,7 +125,22 @@ export const EyeFocusWordTracking: React.FC<EyeFocusWordTrackingProps> = ({
 
   const finishTracking = () => {
     const finalText = getFinalText();
+    console.log('════════════════════════════════════════');
+    console.log('🏁 FINISHING EYE FOCUS TRACKING');
+    console.log('════════════════════════════════════════');
+    console.log(`📝 Original paragraph (${paragraph.split(/\s+/).length} words):`);
+    console.log(`   "${paragraph}"`);
+    console.log(`🎤 Recognized text (${finalText.trim().split(/\s+/).filter(w => w).length} words):`);
+    console.log(`   "${finalText}"`);
+    
+    if (!finalText || finalText.trim().length === 0) {
+      console.warn('⚠️ WARNING: No text was recognized! User may not have spoken or microphone not working.');
+    }
+    
     const evaluationResults = evaluateReadingAccuracy(paragraph, finalText);
+    console.log('📊 Evaluation Results:', evaluationResults);
+    console.log('════════════════════════════════════════');
+    
     setResults(evaluationResults);
     setState('results');
   };
@@ -192,6 +214,43 @@ export const EyeFocusWordTracking: React.FC<EyeFocusWordTrackingProps> = ({
       <div className="eye-focus-container">
         <div className="eye-focus-results">
           <h2 className="results-title">📊 Eye Focus Accuracy Evaluation</h2>
+
+          {/* No Text Detected Warning */}
+          {!results.recognizedText || results.recognizedText.trim().length === 0 ? (
+            <div className="warning-box" style={{
+              backgroundColor: '#ffe4e1',
+              border: '2px solid #ff6b6b',
+              borderRadius: '8px',
+              padding: '16px',
+              marginBottom: '20px',
+              color: '#c92a2a'
+            }}>
+              <p style={{ margin: '0 0 8px 0', fontWeight: 'bold' }}>⚠️ No Text Detected</p>
+              <p style={{ margin: '0', fontSize: '14px' }}>
+                We couldn't detect any speech during this session. Please check:
+              </p>
+              <ul style={{ margin: '8px 0 0 0', paddingLeft: '20px', fontSize: '14px' }}>
+                <li>Your microphone volume is turned on</li>
+                <li>You spoke during the entire exercise</li>
+                <li>There's no background noise blocking your voice</li>
+              </ul>
+              <button 
+                className="btn btn-warning" 
+                onClick={handleRetry}
+                style={{
+                  marginTop: '12px',
+                  padding: '8px 16px',
+                  backgroundColor: '#ff9800',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer'
+                }}
+              >
+                🔄 Try Again
+              </button>
+            </div>
+          ) : null}
 
           {/* Accuracy Meter */}
           <div className="accuracy-section">

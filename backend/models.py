@@ -5,12 +5,10 @@ Database schema definition
 
 from sqlalchemy import (
     Column, Integer, String, Float, Text, DateTime,
-    Boolean, ForeignKey, JSON, Enum
+    Boolean, ForeignKey, JSON
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from datetime import datetime
-import enum
 
 from database import Base
 
@@ -26,8 +24,11 @@ class User(Base):
     email = Column(String(100), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)
     age = Column(Integer, nullable=True)
+
     created_at = Column(DateTime, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    updated_at = Column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
 
     # Relationships
     assessments = relationship(
@@ -155,7 +156,9 @@ class PronunciationCheck(Base):
     __tablename__ = "pronunciation_checks"
 
     id = Column(Integer, primary_key=True, index=True)
-    assessment_id = Column(Integer, ForeignKey("assessments.id"), nullable=False)
+    assessment_id = Column(
+        Integer, ForeignKey("assessments.id"), nullable=False
+    )
     word = Column(String(100), nullable=False)
     spoken_word = Column(String(100), nullable=True)
     is_correct = Column(Boolean, default=False)
@@ -163,7 +166,9 @@ class PronunciationCheck(Base):
     created_at = Column(DateTime, server_default=func.now())
 
     # Relationships
-    assessment = relationship("Assessment", back_populates="pronunciation_checks")
+    assessment = relationship(
+        "Assessment", back_populates="pronunciation_checks"
+    )
 
     def __repr__(self):
         return f"<PronunciationCheck(word='{self.word}')>"
@@ -178,26 +183,29 @@ class ProgressHistory(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     assessment_date = Column(DateTime, server_default=func.now())
-    
+
     # Weekly metrics
     week_number = Column(Integer, nullable=True)
     year = Column(Integer, nullable=True)
-    
+
     # Performance metrics
     average_accuracy = Column(Float, nullable=True)
     average_wpm = Column(Float, nullable=True)
     total_assessments = Column(Integer, default=1)
     average_risk_score = Column(Float, nullable=True)
-    
+
     # Metadata
     created_at = Column(DateTime, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    updated_at = Column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
 
     # Relationships
     user = relationship("User", back_populates="progress_history")
 
     def __repr__(self):
-        return f"<ProgressHistory(user_id={self.user_id}, week={self.week_number})>"
+        week = self.week_number
+        return f"<ProgressHistory(user_id={self.user_id}, week={week})>"
 
 
 # ================== Speed Trainer Models ==================

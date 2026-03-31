@@ -13,12 +13,11 @@ export const CourseNavigation: React.FC<CourseNavigationProps> = ({
 }) => {
   const course = useCourse();
   const steps = [
-    'age-selection',
     'reading-assessment',
     'result-analysis',
     'pronunciation-training',
     'eye-focus-test',
-    'reading-speed-training',
+    'phrase-training',
   ];
 
   const currentIndex = steps.indexOf(course.currentStep);

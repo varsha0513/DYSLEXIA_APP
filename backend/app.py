@@ -3,7 +3,9 @@ FastAPI Backend API for Dyslexia Assessment System
 Wraps the complete reading assessment pipeline into REST endpoints
 """
 
-from fastapi import FastAPI, File, UploadFile, HTTPException, Form, Depends, Header
+from fastapi import (
+    FastAPI, File, UploadFile, Form, HTTPException, Depends, Header
+)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -22,18 +24,18 @@ from text_to_speech import DyslexiaAssistanceEngine
 from pronunciation_trainer import PronunciationTrainer, PronunciationComparator
 from speed_trainer import SpeedTrainer
 from phrase_trainer import PhraseTrainer
-from database import init_db, get_db, engine
-from auth_utils import hash_password, verify_password, create_access_token, decode_access_token, validate_email, validate_password
+from age_based_paragraphs import get_paragraph_for_age, get_age_group_info
+from database import init_db, get_db
+from auth_utils import (
+    verify_password, create_access_token, decode_access_token,
+    validate_email, validate_password
+)
 from crud import (
     UserCRUD,
     AssessmentCRUD,
     ResultCRUD,
-    PronunciationCRUD,
-    ProgressCRUD,
-    SpeedTrainerCRUD,
-    ChunkReadingCRUD
+    ProgressCRUD
 )
-import models
 import schemas
 
 # Initialize FastAPI
@@ -43,12 +45,14 @@ app = FastAPI(
     version="1.0.0"
 )
 
+
 # Initialize database on startup
 @app.on_event("startup")
 def startup_event():
     """Initialize database when app starts"""
     init_db()
     print("[OK] Database tables initialized")
+
 
 # Add CORS middleware
 app.add_middleware(
@@ -518,11 +522,11 @@ def process_audio_file(audio_bytes: bytes, filename: str = 'audio.wav') -> str:
 async def signup(user_data: schemas.UserSignUp, db: Session = Depends(get_db)):
     """
     Register a new user.
-    
+
     Args:
-        user_data: User signup data (name, email, age, password)
+        user_data: User signup data (name, email, password)
         db: Database session
-        
+
     Returns:
         Login response with access token and user data
     """
@@ -530,24 +534,33 @@ async def signup(user_data: schemas.UserSignUp, db: Session = Depends(get_db)):
         # Validate email format
         if not validate_email(user_data.email):
             raise HTTPException(status_code=400, detail="Invalid email format")
-        
+
         # Check if email already exists
         user_crud = UserCRUD(db)
         existing_user = user_crud.get_by_email(user_data.email)
         if existing_user:
-            raise HTTPException(status_code=400, detail="Email already registered")
-        
+            detail = "Email already registered"
+            raise HTTPException(status_code=400, detail=detail)
+
         # Validate password
         if user_data.password != user_data.password_confirm:
-            raise HTTPException(status_code=400, detail="Passwords do not match")
-        
+            detail = "Passwords do not match"
+            raise HTTPException(status_code=400, detail=detail)
+
         is_valid, message = validate_password(user_data.password)
         if not is_valid:
             raise HTTPException(status_code=400, detail=message)
-        
-        # Hash password for the username too
-        username = user_data.name.replace(" ", "_").lower()
-        
+
+        # Generate unique username from the user's name
+        base_username = user_data.name.replace(" ", "_").lower()
+        username = base_username
+        counter = 1
+
+        # Check if username exists and make it unique if needed
+        while user_crud.get_user_by_username(username):
+            username = f"{base_username}{counter}"
+            counter += 1
+
         # Create user
         user_create = schemas.UserCreate(
             username=username,
@@ -555,20 +568,24 @@ async def signup(user_data: schemas.UserSignUp, db: Session = Depends(get_db)):
             password=user_data.password,
             age=user_data.age
         )
-        
+
         user = user_crud.create_user_with_password(user_create)
-        
+
         # Create access token
-        access_token = create_access_token(data={"user_id": user.id, "email": user.email})
-        
+        token_data = {
+            "user_id": user.id,
+            "email": user.email
+        }
+        access_token = create_access_token(data=token_data)
+
         user_response = schemas.UserResponse.from_orm(user)
-        
+
         return schemas.LoginResponse(
             access_token=access_token,
             token_type="bearer",
             user=user_response
         )
-    
+
     except HTTPException:
         raise
     except Exception as e:
@@ -580,11 +597,11 @@ async def signup(user_data: schemas.UserSignUp, db: Session = Depends(get_db)):
 async def login(credentials: schemas.UserLogin, db: Session = Depends(get_db)):
     """
     Login a user with email and password.
-    
+
     Args:
         credentials: Login credentials (email, password)
         db: Database session
-        
+
     Returns:
         Login response with access token and user data
     """
@@ -592,25 +609,28 @@ async def login(credentials: schemas.UserLogin, db: Session = Depends(get_db)):
         # Get user by email
         user_crud = UserCRUD(db)
         user = user_crud.get_by_email(credentials.email)
-        
+
         if not user:
-            raise HTTPException(status_code=401, detail="Invalid email or password")
-        
+            detail = "Invalid email or password"
+            raise HTTPException(status_code=401, detail=detail)
+
         # Verify password
         if not verify_password(credentials.password, user.password_hash):
-            raise HTTPException(status_code=401, detail="Invalid email or password")
-        
+            detail = "Invalid email or password"
+            raise HTTPException(status_code=401, detail=detail)
+
         # Create access token
-        access_token = create_access_token(data={"user_id": user.id, "email": user.email})
-        
+        token_data = {"user_id": user.id, "email": user.email}
+        access_token = create_access_token(data=token_data)
+
         user_response = schemas.UserResponse.from_orm(user)
-        
+
         return schemas.LoginResponse(
             access_token=access_token,
             token_type="bearer",
             user=user_response
         )
-    
+
     except HTTPException:
         raise
     except Exception as e:
@@ -625,41 +645,195 @@ async def get_current_user(
 ):
     """
     Get current authenticated user.
-    
+
     Args:
         authorization: Authorization header with token
         db: Database session
-        
+
     Returns:
         Current user data
     """
     try:
-        if not authorization or not authorization.startswith("Bearer "):
-            raise HTTPException(status_code=401, detail="No authorization token")
-        
+        if not authorization or not authorization.startswith(
+            "Bearer "
+        ):
+            detail = "No authorization token"
+            raise HTTPException(status_code=401, detail=detail)
+
         token = authorization.replace("Bearer ", "")
         payload = decode_access_token(token)
-        
+
         if not payload:
-            raise HTTPException(status_code=401, detail="Invalid or expired token")
-        
+            detail = "Invalid or expired token"
+            raise HTTPException(status_code=401, detail=detail)
+
         user_id = payload.get("user_id")
         if not user_id:
             raise HTTPException(status_code=401, detail="Invalid token")
-        
+
         user_crud = UserCRUD(db)
         user = user_crud.get_user(user_id)
-        
+
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
-        
+
         return schemas.UserResponse.from_orm(user)
-    
+
     except HTTPException:
         raise
     except Exception as e:
         print(f"❌ Get current user error: {e}")
         raise HTTPException(status_code=401, detail="Authentication failed")
+
+
+# ================== Age & Paragraph Selection Endpoints ================
+
+@app.put("/auth/me/age", response_model=schemas.UserResponse)
+async def update_user_age(
+    age: int = Form(...),
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
+    """
+    Update user's age. Age is the most important factor for
+    determining reading assessment difficulty.
+
+    Args:
+        age: User's age in years (must be between 5 and 120)
+        authorization: Authorization header with token
+        db: Database session
+
+    Returns:
+        Updated user data
+    """
+    try:
+        if not authorization or not authorization.startswith("Bearer "):
+            detail = "No authorization token"
+            raise HTTPException(status_code=401, detail=detail)
+
+        if age < 5 or age > 120:
+            detail = "Age must be between 5 and 120"
+            raise HTTPException(status_code=400, detail=detail)
+
+        token = authorization.replace("Bearer ", "")
+        payload = decode_access_token(token)
+
+        if not payload:
+            detail = "Invalid or expired token"
+            raise HTTPException(status_code=401, detail=detail)
+
+        user_id = payload.get("user_id")
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Invalid token")
+
+        user_crud = UserCRUD(db)
+        user = user_crud.get_user(user_id)
+
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        # Update age
+        user.age = age
+        db.commit()
+        db.refresh(user)
+
+        print(f"✅ Updated user {user_id} age to {age}")
+        return schemas.UserResponse.from_orm(user)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Update age error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to update age")
+
+
+@app.get("/paragraph/suggest")
+async def get_suggested_paragraph(
+    age: int,
+    index: int = 0
+):
+    """
+    Get a reading assessment paragraph appropriate for user's age.
+    Age is the PRIMARY factor for determining paragraph difficulty.
+
+    Args:
+        age: User's age in years
+        index: Paragraph index (0-4), cycles if out of range
+
+    Returns:
+        JSON with paragraph text and age group information
+    """
+    try:
+        if age < 5 or age > 120:
+            detail = "Age must be between 5 and 120"
+            raise HTTPException(status_code=400, detail=detail)
+
+        paragraph = get_paragraph_for_age(age, index)
+        age_group_info = get_age_group_info(age)
+
+        group = age_group_info["age_group"]
+        return {
+            "success": True,
+            "paragraph": paragraph,
+            "age_group": group,
+            "reading_level": age_group_info["level"],
+            "difficulty": age_group_info["difficulty"],
+            "focus": age_group_info["focus"],
+            "word_count": age_group_info["typical_word_count"],
+            "message": f"✅ Paragraph selected for age {age}"
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Paragraph suggestion error: {e}")
+        raise HTTPException(
+            status_code=500, detail="Failed to get paragraph suggestion"
+        )
+
+
+@app.get("/paragraph/all")
+async def get_all_paragraphs():
+    """
+    Get all available reading assessment paragraphs organized by age group.
+
+    Returns:
+        JSON with all paragraphs grouped by age and difficulty level
+    """
+    try:
+        from age_based_paragraphs import AGE_BASED_PARAGRAPHS
+
+        result = {}
+        for age_group, paragraphs in AGE_BASED_PARAGRAPHS.items():
+            age_num = (
+                5 if age_group == "4-6" else
+                8 if age_group == "7-9" else
+                11 if age_group == "10-12" else
+                14 if age_group == "13-15" else
+                17 if age_group == "16-18" else 20
+            )
+            age_info = get_age_group_info(age_num)
+
+            result[age_group] = {
+                "age_group": age_info["age_group"],
+                "level": age_info["level"],
+                "difficulty": age_info["difficulty"],
+                "paragraph_count": len(paragraphs),
+                "paragraphs": paragraphs
+            }
+
+        return {
+            "success": True,
+            "total_age_groups": len(result),
+            "paragraphs_by_age": result,
+            "message": "All reading assessment paragraphs organized by age"
+        }
+
+    except Exception as e:
+        print(f"❌ Get all paragraphs error: {e}")
+        raise HTTPException(
+            status_code=500, detail="Failed to retrieve paragraphs"
+        )
 
 
 # ================== TTS Endpoints ================
@@ -1064,7 +1238,7 @@ async def assess_reading(
             )
 
             # Save assessment results
-            result = ResultCRUD.create_result(
+            ResultCRUD.create_result(
                 db,
                 assessment.id,
                 schemas.AssessmentResultCreate(
@@ -1097,6 +1271,7 @@ async def assess_reading(
         print(f"❌ Assessment error: {str(e)}\n")
         msg = f"Assessment failed: {str(e)}"
         raise HTTPException(status_code=500, detail=msg)
+
 
 @app.post("/assess-text", response_model=AssessmentResponse)
 async def assess_with_text(
@@ -1257,13 +1432,15 @@ async def get_word_pronunciation(word: str = Form(...)):
             raise HTTPException(status_code=400, detail="Word cannot be empty")
 
         if not pronunciation_trainer or not tts_engine:
-            raise HTTPException(status_code=503, detail="Pronunciation assistance not available")
+            detail = "Pronunciation assistance not available"
+            raise HTTPException(status_code=503, detail=detail)
 
         print(f"🎵 Generating pronunciation for: '{word}'")
         audio_bytes, audio_base64 = pronunciation_trainer.speak_word(word)
 
         if not audio_bytes:
-            raise HTTPException(status_code=500, detail="Failed to generate pronunciation")
+            detail = "Failed to generate pronunciation"
+            raise HTTPException(status_code=500, detail=detail)
 
         # Return as streaming response for better browser support
         return StreamingResponse(
@@ -1282,7 +1459,9 @@ async def get_word_pronunciation(word: str = Form(...)):
 @app.post("/pronunciation/check", response_model=PronunciationCheckResult)
 async def check_pronunciation(
     word: str = Form(...),
-    audio_file: UploadFile = File(..., description="WAV audio of user attempting the word")
+    audio_file: UploadFile = File(
+        ..., description="WAV audio of user attempting word"
+    )
 ):
     """
     Check user's pronunciation of a word and provide feedback
@@ -1304,7 +1483,8 @@ async def check_pronunciation(
             raise HTTPException(status_code=400, detail="Word cannot be empty")
 
         if not pronunciation_trainer:
-            raise HTTPException(status_code=503, detail="Pronunciation training not available")
+            detail = "Pronunciation training not available"
+            raise HTTPException(status_code=503, detail=detail)
 
         print(f"\n{'='*60}")
         print(f"🎯 PRONUNCIATION CHECK: '{word}'")
@@ -1358,7 +1538,8 @@ async def compare_words(
     """
     try:
         if not spoken_word or not target_word:
-            raise HTTPException(status_code=400, detail="Both words are required")
+            detail = "Both words are required"
+            raise HTTPException(status_code=400, detail=detail)
 
         comparison = PronunciationComparator.compare_word(spoken_word, target_word)
 
@@ -1395,7 +1576,8 @@ async def batch_check_pronunciations(
     """
     try:
         if not pronunciation_trainer:
-            raise HTTPException(status_code=503, detail="Pronunciation training not available")
+            detail = "Pronunciation training not available"
+            raise HTTPException(status_code=503, detail=detail)
 
         # Parse words JSON
         try:
@@ -1403,16 +1585,17 @@ async def batch_check_pronunciations(
             if not isinstance(word_list, list):
                 raise ValueError("Words must be a JSON array")
         except json.JSONDecodeError:
-            raise HTTPException(status_code=400, detail="Invalid JSON for words")
+            detail = "Invalid JSON for words"
+            raise HTTPException(status_code=400, detail=detail)
 
         print(f"📚 Batch pronunciation check for {len(word_list)} words")
 
         results = []
         for word in word_list:
             if isinstance(word, str) and word.strip():
-                # For batch, we'll just provide pronunciation and similarity without audio
+                # For batch, we provide pronunciation
+                # and similarity without audio
                 # In production, you'd correlate audio_files with words
-                comparison = PronunciationComparator.compare_word("", word)
 
                 results.append({
                     "word": word,
@@ -1512,9 +1695,14 @@ async def get_session_data(session_id: str):
 
 
 @app.post("/speed-trainer/action/{session_id}")
-async def perform_session_action(session_id: str, action_request: SpeedTrainerAction):
+async def perform_session_action(
+    session_id: str,
+    action_request: SpeedTrainerAction
+):
     """
-    Perform an action on the training session (start, pause, resume, reset, advance).
+    Perform action on training session.
+
+    Actions: start, pause, resume, reset, advance.
 
     Args:
         session_id: ID of the training session
@@ -1599,7 +1787,10 @@ async def get_session_stats(session_id: str):
         raise HTTPException(status_code=500, detail=f"Failed to get statistics: {str(e)}")
 
 
-@app.post("/speed-trainer/submit-results", response_model=SpeedTrainerCompletionResult)
+@app.post(
+    "/speed-trainer/submit-results",
+    response_model=SpeedTrainerCompletionResult
+)
 async def submit_speed_trainer_results(request: SpeedTrainerResults):
     """
     Submit reading completion results and calculate final WPM.
@@ -1621,7 +1812,8 @@ async def submit_speed_trainer_results(request: SpeedTrainerResults):
         session = trainer.session
 
         if not session:
-            raise HTTPException(status_code=400, detail="Session data is invalid")
+            detail = "Session data is invalid"
+            raise HTTPException(status_code=400, detail=detail)
 
         # Calculate WPM based on actual elapsed time
         if elapsed_time > 0:
@@ -1629,12 +1821,12 @@ async def submit_speed_trainer_results(request: SpeedTrainerResults):
         else:
             calculated_wpm = 0
 
-        print(f"\n✅ SPEED TRAINER SESSION COMPLETED")
+        print("\n✅ SPEED TRAINER SESSION COMPLETED")
         print(f"   Session ID: {session_id}")
         print(f"   Total Words: {session.total_words}")
         print(f"   Elapsed Time: {elapsed_time:.2f} seconds")
         print(f"   Calculated WPM: {calculated_wpm:.2f}")
-        print(f"   Status: Completed")
+        print("   Status: Completed")
 
         return SpeedTrainerCompletionResult(
             session_id=session_id,
@@ -1642,7 +1834,11 @@ async def submit_speed_trainer_results(request: SpeedTrainerResults):
             elapsed_time_seconds=elapsed_time,
             calculated_wpm=round(calculated_wpm, 2),
             status="completed",
-            message=f"Great job! You read {session.total_words} words in {elapsed_time:.1f} seconds at {calculated_wpm:.0f} WPM"
+            message=(
+                f"Great job! You read {session.total_words} words "
+                f"in {elapsed_time:.1f} seconds at "
+                f"{calculated_wpm:.0f} WPM"
+            )
         )
 
     except HTTPException:
@@ -1652,7 +1848,7 @@ async def submit_speed_trainer_results(request: SpeedTrainerResults):
         raise HTTPException(status_code=500, detail=f"Failed to submit results: {str(e)}")
 
 
-# ================== Chunk Reading (Phrase Training) Endpoints ==================
+# ============== Chunk Reading (Phrase Training) Endpoints ===============
 
 @app.post("/chunk-reading/prepare", response_model=ChunkReadingResponse)
 async def prepare_chunk_reading_session(request: ChunkReadingRequest):
@@ -1683,7 +1879,7 @@ async def prepare_chunk_reading_session(request: ChunkReadingRequest):
         # Store session globally
         phrase_trainer_sessions[session_id] = trainer
 
-        print(f"✅ Chunk Reading Session Created")
+        print("✅ Chunk Reading Session Created")
         print(f"   Session ID: {session_id}")
         print(f"   Total Phrases: {session.total_phrases}")
         print(f"   Phrase Range: {min_len}-{max_len} words")
@@ -1704,7 +1900,10 @@ async def prepare_chunk_reading_session(request: ChunkReadingRequest):
         raise HTTPException(status_code=500, detail=f"Failed to prepare chunk reading: {str(e)}")
 
 
-@app.get("/chunk-reading/session/{session_id}", response_model=ChunkReadingSession)
+@app.get(
+    "/chunk-reading/session/{session_id}",
+    response_model=ChunkReadingSession
+)
 async def get_chunk_reading_session(session_id: str):
     """
     Get current chunk reading session data.
@@ -1741,13 +1940,17 @@ async def get_chunk_reading_session(session_id: str):
 
 
 @app.post("/chunk-reading/action/{session_id}")
-async def perform_chunk_reading_action(session_id: str, action_request: ChunkReadingAction):
+async def perform_chunk_reading_action(
+    session_id: str,
+    action_request: ChunkReadingAction
+):
     """
-    Perform an action on the chunk reading session.
+    Perform action on chunk reading session.
 
     Args:
         session_id: ID of the training session
-        action_request: Action to perform (start, pause, resume, reset, advance_phrase)
+        action_request: Action to perform (start, pause, resume,
+            reset, advance_phrase)
 
     Returns:
         Updated session state after action
@@ -1841,7 +2044,10 @@ async def get_chunk_reading_stats(session_id: str):
         raise HTTPException(status_code=500, detail=f"Failed to get statistics: {str(e)}")
 
 
-@app.post("/chunk-reading/submit-results", response_model=ChunkReadingCompletionResult)
+@app.post(
+    "/chunk-reading/submit-results",
+    response_model=ChunkReadingCompletionResult
+)
 async def submit_chunk_reading_results(request: ChunkReadingResults):
     """
     Submit chunk reading completion results and calculate metrics.
@@ -1863,7 +2069,8 @@ async def submit_chunk_reading_results(request: ChunkReadingResults):
         session = trainer.session
 
         if not session:
-            raise HTTPException(status_code=400, detail="Session data is invalid")
+            detail = "Session data is invalid"
+            raise HTTPException(status_code=400, detail=detail)
 
         # Count total words in all phrases
         total_words = sum(len(phrase.split()) for phrase in session.phrases)
@@ -1876,7 +2083,7 @@ async def submit_chunk_reading_results(request: ChunkReadingResults):
             calculated_wpm = 0
             phrases_per_second = 0
 
-        print(f"\n✅ CHUNK READING SESSION COMPLETED")
+        print("\n✅ CHUNK READING SESSION COMPLETED")
         print(f"   Session ID: {session_id}")
         print(f"   Total Phrases: {session.total_phrases}")
         print(f"   Total Words: {total_words}")
@@ -1892,7 +2099,12 @@ async def submit_chunk_reading_results(request: ChunkReadingResults):
             calculated_wpm=round(calculated_wpm, 2),
             phrases_per_second=round(phrases_per_second, 2),
             status="completed",
-            message=f"Excellent! You read {session.total_phrases} phrases ({total_words} words) in {elapsed_time:.1f} seconds at {calculated_wpm:.0f} WPM"
+            message=(
+                f"Excellent! You read {session.total_phrases} "
+                f"phrases ({total_words} words) in "
+                f"{elapsed_time:.1f} seconds at "
+                f"{calculated_wpm:.0f} WPM"
+            )
         )
 
     except HTTPException:

@@ -4,10 +4,10 @@ export type CourseStep =
   | 'age-selection'
   | 'reading-assessment'
   | 'result-analysis'
+  | 'reading-speed-training'
   | 'pronunciation-training'
   | 'eye-focus-test'
-  | 'phrase-training'
-  | 'reading-speed-training';
+  | 'phrase-training';
 
 export type StepCompletion = Record<CourseStep, boolean>;
 
@@ -29,20 +29,20 @@ const COURSE_STEPS: CourseStep[] = [
   'age-selection',
   'reading-assessment',
   'result-analysis',
+  'reading-speed-training',
   'pronunciation-training',
   'eye-focus-test',
   'phrase-training',
-  'reading-speed-training',
 ];
 
 const STEP_TITLES: Record<CourseStep, string> = {
-  'age-selection': 'Age Selection / Login',
+  'age-selection': 'Age Selection',
   'reading-assessment': 'Reading Assessment',
   'result-analysis': 'Result Analysis',
+  'reading-speed-training': 'Reading Speed Training',
   'pronunciation-training': 'Pronunciation Training',
   'eye-focus-test': 'Eye Focus & Guided Reading',
   'phrase-training': 'Chunk Reading (Phrase Training)',
-  'reading-speed-training': 'Speed Improvement',
 };
 
 const CourseContext = createContext<CourseContextType | undefined>(undefined);
@@ -53,10 +53,10 @@ export const CourseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     'age-selection': false,
     'reading-assessment': false,
     'result-analysis': false,
+    'reading-speed-training': false,
     'pronunciation-training': false,
     'eye-focus-test': false,
     'phrase-training': false,
-    'reading-speed-training': false,
   });
 
   // Load from localStorage on mount
@@ -120,10 +120,10 @@ export const CourseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       'age-selection': false,
       'reading-assessment': false,
       'result-analysis': false,
+      'reading-speed-training': false,
       'pronunciation-training': false,
       'eye-focus-test': false,
       'phrase-training': false,
-      'reading-speed-training': false,
     });
   }, []);
 
@@ -136,7 +136,7 @@ export const CourseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, []);
 
   const completedCount = Object.values(stepCompletion).filter(Boolean).length;
-  const completionPercentage = (completedCount / COURSE_STEPS.length) * 100;
+  const completionPercentage = Math.min((completedCount / COURSE_STEPS.length) * 100, 100);
 
   const value: CourseContextType = {
     currentStep,

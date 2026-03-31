@@ -8,7 +8,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   error: string | null;
   login: (email: string, password: string) => Promise<void>;
-  signup: (name: string, email: string, age: number, password: string, passwordConfirm: string) => Promise<void>;
+  signup: (name: string, email: string, password: string, passwordConfirm: string, age?: number) => Promise<void>;
   logout: () => void;
   clearError: () => void;
 }
@@ -66,7 +66,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const signup = async (name: string, email: string, age: number, password: string, passwordConfirm: string) => {
+  const signup = async (name: string, email: string, password: string, passwordConfirm: string, age?: number) => {
     try {
       setError(null);
       setIsLoading(true);
@@ -74,9 +74,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const response = await AuthAPI.signup({
         name,
         email,
-        age,
         password,
         password_confirm: passwordConfirm,
+        age,
       });
 
       // Save token and user

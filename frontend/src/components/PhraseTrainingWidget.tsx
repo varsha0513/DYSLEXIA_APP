@@ -136,21 +136,31 @@ export const PhraseTrainingWidget: React.FC<PhraseTrainingWidgetProps> = ({
       return;
     }
 
-    // Training is complete - stop recording
-    const completeTraining = async () => {
-      try {
-        console.log('⏹ Training complete - stopping recording...');
-        await stopRecording();
-        console.log('✅ Recording stopped successfully');
-        finishTraining();
-      } catch (error) {
-        console.error('❌ Error stopping recording:', error);
-        // Still finish training even if stop fails
-        finishTraining();
-      }
-    };
+    // Training is complete - add delay to let user finish speaking, then stop recording
+    const delayTimer = setTimeout(() => {
+      const completeTraining = async () => {
+        try {
+          console.log('⏹ Training complete - stopping recording after delay...');
+          await stopRecording();
+          
+          // Give stopRecording time to complete its internal processing
+          setTimeout(() => {
+            console.log('✅ Recording stopped successfully');
+            finishTraining();
+          }, 1500); // Wait for Web Speech API to finalize
+        } catch (error) {
+          console.error('❌ Error stopping recording:', error);
+          // Still finish training even if stop fails
+          setTimeout(() => {
+            finishTraining();
+          }, 1500);
+        }
+      };
 
-    completeTraining();
+      completeTraining();
+    }, 2000); // Wait 2 seconds after last phrase for user to finish speaking
+
+    return () => clearTimeout(delayTimer);
   }, [currentPhraseIndex, state, phrases.length, stopRecording]);
 
   const handleStartTraining = () => {
@@ -161,17 +171,33 @@ export const PhraseTrainingWidget: React.FC<PhraseTrainingWidgetProps> = ({
 
   const finishTraining = () => {
     const finalText = getFinalText();
-    console.log('📝 Final recognized text:', finalText || 'NO TEXT CAPTURED');
+    const finalRecognized = finalText.trim();
     
-    if (!finalText || finalText.trim().length === 0) {
-      console.warn('⚠️ No speech was detected during training');
+    console.log('════════════════════════════════════════');
+    console.log('🏁 FINISHING PHRASE TRAINING');
+    console.log('════════════════════════════════════════');
+    console.log(`📝 Original paragraph:`);
+    console.log(`   "${paragraph}"`);
+    console.log(`🎤 Recognized text:`);
+    console.log(`   "${finalRecognized}"`);
+    
+    if (!finalRecognized || finalRecognized.length === 0) {
+      console.warn('⚠️ WARNING: No text was recognized! User may not have spoken or microphone not working.');
       setRecordingError('No speech detected! The microphone or speech recognition may not be working properly.');
       setState('error');
       return;
     }
     
-    const evaluationResults = evaluatePhraseAccuracy(paragraph, finalText);
-    console.log('📊 Phrase training results:', evaluationResults);
+    const evaluationResults = evaluatePhraseAccuracy(paragraph, finalRecognized);
+    
+    console.log('📊 Phrase Evaluation:');
+    console.log(`   Original phrases (${evaluationResults.totalPhrases}): ${evaluationResults.phrases.join(' | ')}`);
+    console.log(`   Correct (${evaluationResults.correctCount}): ${evaluationResults.correctPhrases.join(' | ')}`);
+    console.log(`   Incorrect (${evaluationResults.incorrectCount}): ${evaluationResults.incorrectPhrases.map(p => `"${p[0]}" → "${p[1]}"`).join(', ')}`); 
+    console.log(`   Missing (${evaluationResults.missingCount}): ${evaluationResults.missingPhrases.join(' | ')}`);
+    console.log(`   Accuracy: ${evaluationResults.accuracyPercentage}%`);
+    console.log('════════════════════════════════════════');
+    
     setResults(evaluationResults);
     setState('results');
   };

@@ -23,14 +23,6 @@ const TrainingDashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
   // Training steps with their details
   const trainingSteps: TrainingStep[] = [
     {
-      id: 'age-selection',
-      name: 'age-selection',
-      title: 'Age Selection',
-      icon: '👤',
-      description: 'Start by selecting your age to adjust difficulty level',
-      completed: stepCompletion['age-selection'] || false,
-    },
-    {
       id: 'reading-assessment',
       name: 'reading-assessment',
       title: 'Reading Assessment',
@@ -70,21 +62,13 @@ const TrainingDashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
       description: 'Learn to read in meaningful phrases instead of word-by-word',
       completed: stepCompletion['phrase-training'] || false,
     },
-    {
-      id: 'reading-speed-training',
-      name: 'reading-speed-training',
-      title: 'Reading Speed Training',
-      icon: '⚡',
-      description: 'Improve your reading speed while maintaining accuracy',
-      completed: stepCompletion['reading-speed-training'] || false,
-    },
   ];
 
   const handleStartTraining = () => {
-    // If no steps completed yet, go to age selection
+    // If no steps completed yet, go to reading assessment
     const completedCount = Object.values(stepCompletion).filter(Boolean).length;
     if (completedCount === 0) {
-      setCurrentStep('age-selection');
+      setCurrentStep('reading-assessment');
     } else {
       // Go to the first incomplete step
       const incompletedStep = trainingSteps.find(step => !step.completed);

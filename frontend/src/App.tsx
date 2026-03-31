@@ -17,9 +17,9 @@ import './App.css';
 type AppPage = 'login' | 'signup' | 'dashboard' | 'training';
 
 function AppContent() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   const [currentPage, setCurrentPage] = useState<AppPage>('login');
-  const [age, setAge] = useState<number>(0);
+  const [age, setAge] = useState<number>(12); // Default age for paragraph selection
   const [paragraph, setParagraph] = useState<string>('');
   const [assessmentResults, setAssessmentResults] = useState<AssessmentResponse | null>(null);
   const [appIsLoading, setAppIsLoading] = useState(false);
@@ -30,13 +30,17 @@ function AppContent() {
     if (!isLoading) {
       if (isAuthenticated) {
         setCurrentPage('dashboard');
+        // Set age from user profile if available
+        if (user?.age) {
+          setAge(user.age);
+        }
       } else {
         setCurrentPage('login');
       }
     }
-  }, [isAuthenticated, isLoading]);
+  }, [isAuthenticated, isLoading, user?.age]);
 
-  // Check backend health on component mount
+  // Check backend health and initialize paragraph on component mount
   useEffect(() => {
     const checkBackend = async () => {
       try {
@@ -48,7 +52,11 @@ function AppContent() {
     };
 
     checkBackend();
-  }, []);
+    
+    // Initialize paragraph with default age
+    const selectedParagraph = getParagraphForAge(age);
+    setParagraph(selectedParagraph);
+  }, [age]);
 
   const handleAgeSubmit = (selectedAge: number) => {
     setAge(selectedAge);
@@ -127,7 +135,7 @@ function AppContent() {
   return (
     <div className="app">
       <Navigation onDashboard={() => navigateTo('dashboard')} />
-      <CourseLayout>
+      <CourseLayout onEndSession={() => navigateTo('dashboard')}>
         <CourseView
           age={age}
           paragraph={paragraph}

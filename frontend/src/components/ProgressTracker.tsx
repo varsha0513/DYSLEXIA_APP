@@ -6,12 +6,11 @@ export const ProgressTracker: React.FC = () => {
   const { currentStep, stepCompletion, completionPercentage, setCurrentStep, getStepNumber, getStepTitle } = useCourse();
 
   const steps: CourseStep[] = [
-    'age-selection',
     'reading-assessment',
     'result-analysis',
     'pronunciation-training',
     'eye-focus-test',
-    'reading-speed-training',
+    'phrase-training',
   ];
 
   const handleStepClick = (step: CourseStep) => {

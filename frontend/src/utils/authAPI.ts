@@ -12,9 +12,9 @@ export interface LoginCredentials {
 export interface SignUpData {
   name: string;
   email: string;
-  age: number;
   password: string;
   password_confirm: string;
+  age?: number;
 }
 
 export interface User {

@@ -1,10 +1,8 @@
 import React from 'react';
 import { useCourse } from '../contexts/CourseContext';
-import { AgeSelectionStep } from './AgeSelectionStep';
 import { ReadingAssessmentStep } from './ReadingAssessmentStep';
 import { ResultAnalysisStep } from './ResultAnalysisStep';
 import { PronunciationTrainingStep } from './PronunciationTrainingStep';
-import { ReadingSpeedTrainingStep } from './ReadingSpeedTrainingStep';
 import { EyeFocusTestStep } from './EyeFocusTestStep';
 import { PhraseTrainingStep } from './PhraseTrainingStep';
 import { AssessmentResponse } from '../types';
@@ -45,9 +43,6 @@ export const CourseView: React.FC<CourseViewProps> = ({
   }
 
   switch (currentStep) {
-    case 'age-selection':
-      return <AgeSelectionStep onAgeSubmit={onAgeSubmit} />;
-
     case 'reading-assessment':
       return (
         <ReadingAssessmentStep
@@ -80,15 +75,6 @@ export const CourseView: React.FC<CourseViewProps> = ({
 
     case 'phrase-training':
       return <PhraseTrainingStep paragraph={paragraph} />;
-
-    case 'reading-speed-training':
-      return assessmentResults ? (
-        <ReadingSpeedTrainingStep age={age} assessmentResults={assessmentResults} />
-      ) : (
-        <div style={{ textAlign: 'center', padding: '40px' }}>
-          <p>No assessment results available. Please go back and complete the reading assessment.</p>
-        </div>
-      );
 
     default:
       return null;

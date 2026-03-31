@@ -12,9 +12,9 @@ const SignUpPage: React.FC<SignUpPageProps> = ({ onNavigate }) => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    age: '',
     password: '',
     passwordConfirm: '',
+    age: '',
   });
 
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
@@ -36,14 +36,6 @@ const SignUpPage: React.FC<SignUpPageProps> = ({ onNavigate }) => {
       errors.email = 'Invalid email format';
     }
 
-    // Validate age
-    const ageNum = parseInt(formData.age);
-    if (!formData.age) {
-      errors.age = 'Age is required';
-    } else if (isNaN(ageNum) || ageNum < 5 || ageNum > 100) {
-      errors.age = 'Age must be between 5 and 100';
-    }
-
     // Validate password
     if (!formData.password) {
       errors.password = 'Password is required';
@@ -58,6 +50,16 @@ const SignUpPage: React.FC<SignUpPageProps> = ({ onNavigate }) => {
     // Validate password confirmation
     if (formData.passwordConfirm !== formData.password) {
       errors.passwordConfirm = 'Passwords do not match';
+    }
+
+    // Validate age
+    if (!formData.age) {
+      errors.age = 'Age is required';
+    } else {
+      const ageNum = parseInt(formData.age, 10);
+      if (isNaN(ageNum) || ageNum < 5 || ageNum > 120) {
+        errors.age = 'Age must be between 5 and 120';
+      }
     }
 
     return errors;
@@ -96,7 +98,13 @@ const SignUpPage: React.FC<SignUpPageProps> = ({ onNavigate }) => {
 
     try {
       clearError();
-      await signup(formData.name, formData.email, parseInt(formData.age), formData.password, formData.passwordConfirm);
+      await signup(
+        formData.name, 
+        formData.email, 
+        formData.password, 
+        formData.passwordConfirm,
+        formData.age ? parseInt(formData.age, 10) : undefined
+      );
       // Redirect to dashboard on successful signup
       onNavigate?.('dashboard');
     } catch {
@@ -154,25 +162,6 @@ const SignUpPage: React.FC<SignUpPageProps> = ({ onNavigate }) => {
             )}
           </div>
 
-          {/* Age Field */}
-          <div className="form-group">
-            <label htmlFor="age">Age</label>
-            <input
-              id="age"
-              name="age"
-              type="number"
-              value={formData.age}
-              onChange={handleChange}
-              placeholder="Enter your age"
-              min="5"
-              max="100"
-              disabled={isLoading}
-            />
-            {validationErrors.age && (
-              <span className="field-error">{validationErrors.age}</span>
-            )}
-          </div>
-
           {/* Password Field */}
           <div className="form-group">
             <label htmlFor="password">Password</label>
@@ -208,6 +197,28 @@ const SignUpPage: React.FC<SignUpPageProps> = ({ onNavigate }) => {
             {validationErrors.passwordConfirm && (
               <span className="field-error">{validationErrors.passwordConfirm}</span>
             )}
+          </div>
+
+          {/* Age Field */}
+          <div className="form-group">
+            <label htmlFor="age">Age</label>
+            <input
+              id="age"
+              name="age"
+              type="number"
+              value={formData.age}
+              onChange={handleChange}
+              placeholder="Enter your age (5-120)"
+              min="5"
+              max="120"
+              disabled={isLoading}
+            />
+            {validationErrors.age && (
+              <span className="field-error">{validationErrors.age}</span>
+            )}
+            <p className="age-hint">
+              Your age helps us select reading materials at the right difficulty level for you.
+            </p>
           </div>
 
           {/* Submit Button */}
